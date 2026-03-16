@@ -727,29 +727,29 @@ export default function TopicPage() {
     }
   };
 
-  if (!currentTopic) return <div className="bg-[#0a0a0c] text-white h-screen flex items-center justify-center">Loading...</div>;
+  if (!currentTopic) return <div className="bg-[#f4f3f9] text-slate-700 h-screen flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-white font-sans selection:bg-blue-500/30">
+    <div className="min-h-screen bg-[#f4f3f9] text-slate-900 font-sans selection:bg-purple-100">
       {/* Top Header */}
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-white mb-6 transition-colors font-medium">← Back to Path</button>
+        <button onClick={() => router.back()} className="text-slate-500 hover:text-violet-500 mb-6 transition-colors font-medium">← Back to Path</button>
         <div className="flex items-center gap-4">
             <h1 className="text-3xl font-black">{currentTopic.title}</h1>
-            <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-400">Step 1</span>
+            <span className="px-3 py-1 bg-violet-50 border border-violet-100 rounded-full text-[10px] uppercase tracking-widest font-bold text-slate-500">Step 1</span>
         </div>
-        <p className="text-gray-500 mt-2">{currentTopic.description}</p>
+        <p className="text-slate-500 mt-2">{currentTopic.description}</p>
       </div>
 
       {/* Tabs Navigation & Language Toggle */}
       <div className="max-w-5xl mx-auto px-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="bg-[#121214] p-1.5 rounded-2xl border border-white/5 inline-flex">
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 inline-flex shadow-sm">
           {(["video", "quiz", "tasks"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-8 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
-                activeTab === tab ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-gray-500 hover:text-gray-300"
+                activeTab === tab ? "bg-violet-500 text-white shadow" : "text-slate-500 hover:text-violet-500"
               }`}
             >
               {tab}
@@ -759,16 +759,16 @@ export default function TopicPage() {
 
         {/* --- Language Toggle Pill (Video Style) --- */}
         {activeTab === "video" && (
-            <div className="flex bg-[#121214] p-1 rounded-full border border-white/5 shadow-inner">
+          <div className="flex bg-white p-1 rounded-full border border-slate-200 shadow-sm">
                 <button 
                     onClick={() => setVideoLanguage("English")}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "English" ? "bg-emerald-500 text-white shadow-lg" : "text-gray-500"}`}
+              className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "English" ? "bg-violet-500 text-white shadow" : "text-slate-500"}`}
                 >
                     🇺🇸 English
                 </button>
                 <button 
                     onClick={() => setVideoLanguage("Hindi")}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "Hindi" ? "bg-emerald-500 text-white shadow-lg" : "text-gray-500"}`}
+              className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "Hindi" ? "bg-violet-500 text-white shadow" : "text-slate-500"}`}
                 >
                     🇮🇳 Hindi
                 </button>
@@ -782,11 +782,11 @@ export default function TopicPage() {
         {/* --- VIDEO TAB --- */}
         {activeTab === "video" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="relative aspect-video rounded-4xl overflow-hidden border border-white/10 bg-[#121214] shadow-2xl shadow-blue-500/5 flex items-center justify-center">
+            <div className="relative aspect-video rounded-4xl overflow-hidden border border-slate-200 bg-white shadow-lg flex items-center justify-center">
               {videoLoading ? (
                   <div className="flex flex-col items-center gap-4">
-                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                      <p className="text-gray-500 text-sm font-medium">Finding best {videoLanguage} tutorial...</p>
+                      <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-slate-500 text-sm font-medium">Finding best {videoLanguage} tutorial...</p>
                   </div>
               ) : dynamicVideoId ? (
                 <iframe
@@ -797,28 +797,28 @@ export default function TopicPage() {
                 ></iframe>
               ) : videoError ? (
                 <div className="px-6 text-center">
-                  <p className="text-red-400 font-semibold">{videoError}</p>
-                  <p className="mt-2 text-sm text-gray-500">Check your YouTube API key and quota, then try again.</p>
+                  <p className="text-red-500 font-semibold">{videoError}</p>
+                  <p className="mt-2 text-sm text-slate-500">Check your YouTube API key and quota, then try again.</p>
                 </div>
               ) : (
-                <p className="text-gray-500">Video not found</p>
+                <p className="text-slate-500">Video not found</p>
               )}
             </div>
-            <p className="text-center text-gray-500 text-sm italic">Showing most popular {videoLanguage} tutorial for {currentTopic.title}.</p>
+            <p className="text-center text-slate-500 text-sm italic">Showing most popular {videoLanguage} tutorial for {currentTopic.title}.</p>
           </div>
         )}
 
         {/* --- QUIZ TAB --- */}
         {activeTab === "quiz" && (
-          <div className="bg-[#121214] rounded-4xl border border-white/5 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500">
-            <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-6">
+          <div className="bg-white rounded-4xl border border-slate-200 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500 shadow-sm">
+            <div className="flex justify-between items-center mb-10 border-b border-slate-100 pb-6">
                 <div>
                     <h2 className="text-2xl font-black mb-1">AI Practice Quiz</h2>
                 </div>
                 <button 
                   onClick={generateQuiz}
                   disabled={loading}
-                  className="px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                  className="px-6 py-3 bg-linear-to-r from-violet-500 to-pink-400 text-white rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {loading ? "AI is thinking..." : "✨ Generate 10 Questions"}
                 </button>
@@ -828,7 +828,7 @@ export default function TopicPage() {
                 <div className="space-y-12">
                 {showResults && (
                   <div className="rounded-3xl border border-blue-500/20 bg-blue-500/10 p-6 animate-in zoom-in-95">
-                    <p className="text-sm uppercase tracking-[0.2em] text-blue-300 font-bold">Quiz Result</p>
+                      <p className="text-sm uppercase tracking-[0.2em] text-violet-500 font-bold">Quiz Result</p>
                     <h3 className="mt-2 text-3xl font-black">{score} / {quiz.length}</h3>
                   </div>
                 )}
@@ -844,13 +844,13 @@ export default function TopicPage() {
                                         className={`p-5 rounded-2xl border text-left transition-all font-medium ${
                                             showResults
                                               ? opt === q.correctAnswer
-                                                ? "bg-emerald-500/10 border-emerald-500 text-emerald-300"
+                                                ? "bg-emerald-50 border-emerald-500 text-emerald-700"
                                                 : selectedAnswers[qIdx] === opt
-                                                  ? "bg-red-500/10 border-red-500 text-red-300"
-                                                  : "bg-white/5 border-white/5 text-gray-500"
+                                                  ? "bg-red-50 border-red-500 text-red-700"
+                                                  : "bg-slate-50 border-slate-200 text-slate-500"
                                               : selectedAnswers[qIdx] === opt
-                                                ? "bg-blue-600/10 border-blue-500 text-blue-400"
-                                                : "bg-white/5 border-white/5 hover:border-white/10"
+                                                ? "bg-violet-50 border-violet-500 text-violet-600"
+                                                : "bg-slate-50 border-slate-200 hover:border-violet-200"
                                         }`}
                                     >
                                         {opt}
@@ -858,12 +858,12 @@ export default function TopicPage() {
                                 ))}
                             </div>
                             {showResults && (
-                                <div className={`rounded-2xl border p-6 animate-in slide-in-from-left-4 ${selectedAnswers[qIdx] === q.correctAnswer ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+                              <div className={`rounded-2xl border p-6 animate-in slide-in-from-left-4 ${selectedAnswers[qIdx] === q.correctAnswer ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className={`w-2 h-2 rounded-full ${selectedAnswers[qIdx] === q.correctAnswer ? "bg-emerald-500" : "bg-red-500"}`}></div>
-                                        <p className="text-xs uppercase tracking-widest font-black text-gray-500">Explanation</p>
+                                  <p className="text-xs uppercase tracking-widest font-black text-slate-500">Explanation</p>
                                     </div>
-                                    <p className="text-sm leading-7 text-gray-300 italic">
+                                <p className="text-sm leading-7 text-slate-700 italic">
                                       {q.explanation}
                                     </p>
                                 </div>
@@ -871,12 +871,12 @@ export default function TopicPage() {
                         </div>
                     ))}
                     {!showResults && (
-                        <button onClick={() => setShowResults(true)} className="w-full py-5 bg-white text-black rounded-3xl font-black text-lg hover:bg-gray-200 transition-all shadow-xl">Submit Answers</button>
+                          <button onClick={() => setShowResults(true)} className="w-full py-5 bg-linear-to-r from-violet-500 to-pink-400 text-white rounded-3xl font-black text-lg hover:opacity-95 transition-all shadow">Submit Answers</button>
                     )}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-white/5 rounded-4xl border border-dashed border-white/10">
-                    <p className="text-gray-500 mb-6">Ready to test your knowledge about {currentTopic.title}?</p>
+                      <div className="text-center py-20 bg-violet-50 rounded-4xl border border-dashed border-violet-200">
+                        <p className="text-slate-500 mb-6">Ready to test your knowledge about {currentTopic.title}?</p>
                 </div>
             )}
         </div>
@@ -885,10 +885,10 @@ export default function TopicPage() {
         {/* --- TASKS TAB --- */}
         {activeTab === "tasks" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="p-6 rounded-3xl border border-white/10 bg-white/5">
-              <p className="text-xs uppercase tracking-widest text-blue-400 font-black">Mini Tasks</p>
+            <div className="p-6 rounded-3xl border border-violet-100 bg-violet-50">
+              <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Mini Tasks</p>
               <h3 className="text-2xl font-black mt-2">{currentTopic.title} Coding Drills</h3>
-              <p className="text-gray-400 mt-2 text-sm">
+              <p className="text-slate-500 mt-2 text-sm">
                 Completed {completedTasks.length}/{currentTopic.miniTasks.length}
               </p>
             </div>
@@ -903,19 +903,19 @@ export default function TopicPage() {
                     key={task}
                     className={`p-8 border rounded-4xl relative overflow-hidden ${
                       isDone
-                        ? "bg-emerald-500/10 border-emerald-500/40"
-                        : "bg-linear-to-br from-white/5 to-transparent border-white/5"
+                        ? "bg-emerald-50 border-emerald-200"
+                        : "bg-white border-slate-200"
                     }`}
                   >
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                       <span className="text-6xl font-black italic">{String(index + 1).padStart(2, "0")}</span>
                     </div>
 
-                    <span className="text-blue-500 text-xs font-black uppercase tracking-widest">Challenge</span>
+                    <span className="text-violet-500 text-xs font-black uppercase tracking-widest">Challenge</span>
                     <h4 className="text-xl font-bold mt-2 mb-4">Task {index + 1}</h4>
-                    <p className="text-gray-300 text-sm mb-8 leading-relaxed">{task}</p>
+                    <p className="text-slate-600 text-sm mb-8 leading-relaxed">{task}</p>
 
-                    <div className={`mb-3 text-xs font-bold uppercase tracking-widest ${isDone ? "text-emerald-400" : isLocked ? "text-gray-500" : "text-blue-400"}`}>
+                    <div className={`mb-3 text-xs font-bold uppercase tracking-widest ${isDone ? "text-emerald-600" : isLocked ? "text-slate-400" : "text-violet-500"}`}>
                       {isDone ? "Completed" : isLocked ? "Locked" : "Ready to Solve"}
                     </div>
 
@@ -923,7 +923,7 @@ export default function TopicPage() {
                       type="button"
                       onClick={() => openTaskWorkspace(index)}
                       disabled={isLocked}
-                      className="mt-3 w-full py-3 border rounded-xl font-bold transition-all bg-black/20 hover:bg-black/40 border-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="mt-3 w-full py-3 border rounded-xl font-bold transition-all bg-violet-50 hover:bg-violet-100 border-violet-200 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {isLocked ? "Complete Previous Task" : activeTaskIndex === index ? "Workspace Opened" : "Open Workspace"}
                     </button>
@@ -933,17 +933,17 @@ export default function TopicPage() {
             </div>
 
             {activeTaskIndex !== null && (
-              <div ref={workspaceRef} className="rounded-4xl border border-white/10 bg-[#121214] p-6 md:p-8 space-y-5">
+              <div ref={workspaceRef} className="rounded-4xl border border-slate-200 bg-white p-6 md:p-8 space-y-5 shadow-sm">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-blue-400 font-black">Task Workspace</p>
+                  <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Task Workspace</p>
                   <h4 className="text-2xl font-black mt-2">Task {activeTaskIndex + 1}</h4>
-                  <p className="text-gray-400 mt-2 text-sm">{currentTopic.miniTasks[activeTaskIndex]}</p>
+                  <p className="text-slate-500 mt-2 text-sm">{currentTopic.miniTasks[activeTaskIndex]}</p>
                 </div>
 
                 <textarea
                   value={taskDrafts[activeTaskIndex] ?? ""}
                   onChange={(e) => updateTaskDraft(activeTaskIndex, e.target.value)}
-                  className="w-full min-h-65 rounded-2xl bg-black/30 border border-white/10 p-4 text-sm font-mono outline-none focus:border-blue-500"
+                  className="w-full min-h-65 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm font-mono outline-none focus:border-violet-500"
                   spellCheck={false}
                 />
 
@@ -952,21 +952,21 @@ export default function TopicPage() {
                     type="button"
                     onClick={evaluateActiveTask}
                     disabled={taskCheckLoading}
-                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white font-bold disabled:opacity-50"
                   >
                     {taskCheckLoading ? "Checking..." : "Check with AI"}
                   </button>
-                  <p className="text-xs text-gray-400">Pass this task to unlock the next one.</p>
+                  <p className="text-xs text-slate-500">Pass this task to unlock the next one.</p>
                 </div>
 
                 {taskFeedback[activeTaskIndex] && (
-                  <div className={`rounded-2xl border p-4 ${taskFeedback[activeTaskIndex].passed ? "border-emerald-500/40 bg-emerald-500/10" : "border-red-500/40 bg-red-500/10"}`}>
+                  <div className={`rounded-2xl border p-4 ${taskFeedback[activeTaskIndex].passed ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
                     <p className="font-bold">
                       {taskFeedback[activeTaskIndex].passed ? "Passed" : "Needs Improvement"} · Score {taskFeedback[activeTaskIndex].score}/100
                     </p>
-                    <p className="mt-2 text-sm text-gray-200">{taskFeedback[activeTaskIndex].feedback}</p>
+                    <p className="mt-2 text-sm text-slate-700">{taskFeedback[activeTaskIndex].feedback}</p>
                     {taskFeedback[activeTaskIndex].missing.length > 0 && (
-                      <ul className="mt-2 list-disc pl-5 text-sm text-gray-300">
+                      <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">
                         {taskFeedback[activeTaskIndex].missing.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
@@ -977,15 +977,15 @@ export default function TopicPage() {
 
                 {WEB_PREVIEW_TOPICS.has(currentTopic.id) ? (
                   <div className="space-y-3">
-                    <p className="text-xs uppercase tracking-widest text-emerald-400 font-black">Live Preview</p>
+                    <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Live Preview</p>
                     <iframe
                       title="task-preview"
-                      className="w-full h-80 rounded-2xl border border-white/10 bg-white"
+                      className="w-full h-80 rounded-2xl border border-slate-200 bg-white"
                       srcDoc={buildPreviewDoc(currentTopic.id, taskDrafts[activeTaskIndex] ?? "")}
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-gray-400">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                     Live UI preview is available for HTML, CSS, and JavaScript tasks.
                     For this topic, write code here and run/test it in your local IDE.
                   </div>
