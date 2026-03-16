@@ -332,6 +332,9 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { coursesData } from "@/lib/coursesData";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 interface QuizQuestion {
   question: string;
@@ -341,6 +344,22 @@ interface QuizQuestion {
 }
 
 const WEB_PREVIEW_TOPICS = new Set(["html", "css", "js"]);
+
+function isFirestoreOfflineError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes("client is offline") || msg.includes("unavailable") || msg.includes("network");
+}
+
+function handleFirestoreSyncError(error: unknown, label: "load" | "save") {
+  if (isFirestoreOfflineError(error)) {
+    return;
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.warn(`Firestore progress ${label} warning:`, error);
+  }
+}
 
 function getTaskStarterCode(topicId: string, task: string) {
   if (topicId === "html") {
@@ -443,6 +462,15 @@ export default function TopicPage() {
   const [taskCheckLoading, setTaskCheckLoading] = useState(false);
   const [taskFeedback, setTaskFeedback] = useState<Record<number, { passed: boolean; score: number; feedback: string; missing: string[] }>>({});
   const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  // Listen to Firebase auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const allTopics = Object.values(coursesData).flatMap(course => course.topics);
   const currentTopic = allTopics.find(t => t.id === id);
@@ -450,17 +478,46 @@ export default function TopicPage() {
   useEffect(() => {
     if (!currentTopic || typeof window === "undefined") return;
 
+    // Step 1: Load from localStorage immediately (fast, offline)
     const saved = window.localStorage.getItem(`mini-tasks:${currentTopic.id}`);
     const parsed = saved ? JSON.parse(saved) : [];
-    const normalized = Array.isArray(parsed)
+    const localCompleted: number[] = Array.isArray(parsed)
       ? parsed.filter((item): item is number => typeof item === "number")
       : [];
-    setCompletedTasks(normalized);
+    setCompletedTasks(localCompleted);
 
     const savedDrafts = window.localStorage.getItem(`mini-task-drafts:${currentTopic.id}`);
     setTaskDrafts(savedDrafts ? (JSON.parse(savedDrafts) as Record<number, string>) : {});
     setActiveTaskIndex(null);
-  }, [currentTopic]);
+
+    // Step 2: Sync from Firestore if user is logged in (cross-device)
+    if (user) {
+      const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
+      getDoc(docRef)
+        .then((snap) => {
+          if (snap.exists()) {
+            const firestoreData = snap.data();
+            const firestoreCompleted: number[] = Array.isArray(firestoreData.completedTasks)
+              ? firestoreData.completedTasks.filter((item: unknown): item is number => typeof item === "number")
+              : [];
+            // Merge: union of localStorage + Firestore (tak koi bhi device ka data na khoye)
+            const merged = Array.from(
+              new Set([...localCompleted, ...firestoreCompleted])
+            ).sort((a, b) => a - b);
+            setCompletedTasks(merged);
+            window.localStorage.setItem(`mini-tasks:${currentTopic.id}`, JSON.stringify(merged));
+
+            // If local has newer progress, push merged state back to Firestore.
+            if (merged.length !== firestoreCompleted.length) {
+              setDoc(docRef, { completedTasks: merged }, { merge: true }).catch((err) => {
+                handleFirestoreSyncError(err, "save");
+              });
+            }
+          }
+        })
+        .catch((err) => handleFirestoreSyncError(err, "load"));
+    }
+  }, [currentTopic, user]);
 
   useEffect(() => {
     const fetchTopVideo = async () => {
@@ -643,8 +700,16 @@ export default function TopicPage() {
       if (data.passed && activeTaskIndex <= unlockedIndex && !completedSet.has(activeTaskIndex)) {
         const updated = [...completedTasks, activeTaskIndex].sort((a, b) => a - b);
         setCompletedTasks(updated);
+        // Save to localStorage (fast, offline)
         if (typeof window !== "undefined") {
           window.localStorage.setItem(`mini-tasks:${currentTopic.id}`, JSON.stringify(updated));
+        }
+        // Save to Firestore (cross-device, account-based)
+        if (user) {
+          const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
+          setDoc(docRef, { completedTasks: updated }, { merge: true }).catch((err) => {
+            handleFirestoreSyncError(err, "save");
+          });
         }
       }
     } catch (error) {

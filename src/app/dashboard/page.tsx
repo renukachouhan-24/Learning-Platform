@@ -1,81 +1,6 @@
-// "use client";
-// import { auth } from "@/lib/firebase";
-// import { onAuthStateChanged, User } from "firebase/auth";
-// import { useRouter } from "next/navigation";
-// import { useEffect, useState } from "react";
-
-// const paths = [
-//   {
-//     id: "full-stack",
-//     title: "Full Stack Developer",
-//     description: "Learn HTML, CSS, JS, React, Next.js, and Node.js from scratch.",
-//     icon: "🌐",
-//     color: "bg-blue-500",
-//   },
-//   {
-//     id: "ai-dev",
-//     title: "AI Developer",
-//     description: "Master Python, Machine Learning, Deep Learning, and LLMs.",
-//     icon: "🤖",
-//     color: "bg-purple-600",
-//   },
-// ];
-
-// export default function Dashboard() {
-//   const [user, setUser] = useState<User | null>(null);
-//   const router = useRouter();
-
-//   useEffect(() => {
-//     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-//       if (!currentUser) {
-//         router.push("/"); // अगर लॉगिन नहीं है तो होम पेज पर भेजें
-//       } else {
-//         setUser(currentUser);
-//       }
-//     });
-//     return () => unsubscribe();
-//   }, [router]);
-
-//   if (!user) return <div className="flex justify-center items-center h-screen">Loading...</div>;
-
-//   return (
-//     <div className="min-h-screen bg-gray-50 p-6 md:p-12">
-//       <header className="max-w-6xl mx-auto mb-12">
-//         <h1 className="text-4xl font-black text-gray-900">Welcome Back, {user.displayName?.split(" ")[0]}! 👋</h1>
-//         <p className="text-gray-500 mt-2 text-lg">Choose your learning path and start building the future.</p>
-//       </header>
-
-//       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-//         {paths.map((path) => (
-//           <div 
-//             key={path.id}
-//             onClick={() => router.push(`/path/${path.id}`)}
-//             className="group cursor-pointer relative overflow-hidden bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
-//           >
-//             <div className={`w-16 h-16 ${path.color} text-white flex items-center justify-center text-3xl rounded-2xl mb-6 group-hover:scale-110 transition-transform`}>
-//               {path.icon}
-//             </div>
-//             <h2 className="text-2xl font-bold text-gray-800 mb-3">{path.title}</h2>
-//             <p className="text-gray-500 leading-relaxed mb-6">{path.description}</p>
-//             <div className="flex items-center text-blue-600 font-bold group-hover:translate-x-2 transition-transform">
-//               Start Learning <span>→</span>
-//             </div>
-//           </div>
-//         ))}
-//       </div>
-
-//       <footer className="max-w-6xl mx-auto mt-20 text-center text-gray-400 text-sm">
-//         AI Powered Developer Learning Platform © 2026
-//       </footer>
-//     </div>
-//   );
-// }
-
-
-
 "use client";
 import { auth } from "@/lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image"; // Image इम्पोर्ट किया
@@ -101,6 +26,7 @@ const paths = [
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -114,6 +40,17 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [router]);
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await signOut(auth);
+      router.replace("/");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   if (!user) return <div className="flex justify-center items-center h-screen bg-[#0a0a0c] text-white font-sans">Loading...</div>;
 
   return (
@@ -124,15 +61,24 @@ export default function Dashboard() {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-sm">✨</div>
             DevLearn AI
         </div>
-        <div className="relative w-10 h-10 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
-            {user.photoURL ? (
-              <Image 
-                src={user.photoURL} 
-                alt="profile" 
-                fill 
-                className="object-cover"
-              />
-            ) : "👤"}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="px-4 py-2 text-sm rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loggingOut ? "Logging out..." : "Logout"}
+          </button>
+          <div className="relative w-10 h-10 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
+              {user.photoURL ? (
+                <Image 
+                  src={user.photoURL} 
+                  alt="profile" 
+                  fill 
+                  className="object-cover"
+                />
+              ) : "👤"}
+          </div>
         </div>
       </nav>
 

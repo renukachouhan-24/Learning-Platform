@@ -1,13 +1,27 @@
 "use client";
-import { auth, db } from "@/lib/firebase"; // db को भी इम्पोर्ट करें
-import { GoogleAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"; 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
-  const [user, setUser] = useState<User | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        router.replace("/dashboard");
+        return;
+      }
+      setCheckingAuth(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogin = async () => {
     if (signingIn) return;
@@ -16,15 +30,11 @@ export default function Login() {
     try {
       const result = await signInWithPopup(auth, provider);
       const loggedInUser = result.user;
-      
-      setUser(loggedInUser);
-      
-      // Firestore में यूजर डेटा सेव करने का लॉजिक
+
       const userRef = doc(db, "users", loggedInUser.uid);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // अगर यूजर पहली बार आया है, तो नई एंट्री बनाओ
         await setDoc(userRef, {
           uid: loggedInUser.uid,
           name: loggedInUser.displayName,
@@ -37,14 +47,13 @@ export default function Login() {
           createdAt: serverTimestamp(),
           lastLoginAt: serverTimestamp()
         });
-        console.log("New user saved to Firestore!");
       } else {
-        // Update last login time for existing users
         await setDoc(userRef, {
           lastLoginAt: serverTimestamp()
         }, { merge: true });
-        console.log("Welcome back, existing user!");
       }
+
+      router.replace("/dashboard");
 
     } catch (error: unknown) {
       const code = (error as { code?: string })?.code;
@@ -56,65 +65,46 @@ export default function Login() {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    setUser(null);
-  };
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center">
+        <div className="text-sm tracking-wide text-gray-400">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-      <div className="p-8 bg-white shadow-2xl rounded-3xl border border-gray-100 transition-all hover:shadow-blue-100">
-        {user ? (
-          <div className="text-center">
-            <div className="mb-4 flex justify-center">
-               {/* यूजर की फोटो दिखाने के लिए */}
-               {user.photoURL && (
-                 <Image
-                   src={user.photoURL}
-                   alt="profile"
-                   width={80}
-                   height={80}
-                   className="rounded-full border-4 border-blue-500"
-                 />
-               )}
+    <div className="min-h-screen bg-[#0a0a0c] text-white relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.18),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(99,102,241,0.15),transparent_30%),radial-gradient(circle_at_50%_90%,rgba(16,185,129,0.10),transparent_30%)]" />
+
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-4xl border border-white/10 bg-white/3 backdrop-blur-xl p-8 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-5 h-14 w-14 rounded-2xl bg-linear-to-br from-blue-500 to-cyan-500 grid place-items-center text-xl font-bold shadow-lg">
+              ✨
             </div>
-            <h1 className="text-2xl font-extrabold text-gray-800">Hi, {user.displayName}!</h1>
-            <p className="mb-6 text-gray-500 font-medium">{user.email}</p>
-            
-            <div className="flex flex-col gap-3">
-               <button 
-                 onClick={() => window.location.href = '/dashboard'} // डैशबोर्ड पर जाने के लिए
-                 className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
-               >
-                 Go to Dashboard
-               </button>
-               <button 
-                 onClick={handleLogout}
-                 className="text-sm text-red-500 hover:underline transition-all"
-               >
-                 Logout
-               </button>
-            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight">Welcome to DevLearn AI</h1>
+            <p className="mt-2 text-sm text-gray-400">Login karein aur direct dashboard se learning continue karein.</p>
           </div>
-        ) : (
-          <div className="text-center">
-            <h2 className="text-3xl font-black text-gray-900 mb-2">Welcome</h2>
-            <p className="text-gray-400 mb-8">Start your AI learning journey today.</p>
-            <button 
-              onClick={handleLogin}
-              disabled={signingIn}
-              className="flex items-center gap-3 px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-2xl shadow-sm hover:border-blue-500 hover:text-blue-600 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Image
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                alt="google"
-                width={24}
-                height={24}
-              />
-              Sign in with Google
-            </button>
-          </div>
-        )}
+
+          <button
+            onClick={handleLogin}
+            disabled={signingIn}
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-white text-gray-900 font-semibold hover:bg-gray-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Image
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="google"
+              width={22}
+              height={22}
+            />
+            {signingIn ? "Signing in..." : "Continue with Google"}
+          </button>
+
+          <p className="mt-4 text-center text-xs text-gray-500">
+            Secure sign-in powered by Firebase Authentication
+          </p>
+        </div>
       </div>
     </div>
   );
