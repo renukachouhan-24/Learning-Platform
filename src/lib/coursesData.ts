@@ -181,4 +181,3 @@ export const coursesData: Record<string, Course> = {
   }
 };
 
-// coursesData

@@ -1,66 +1,3 @@
-// import { NextResponse } from "next/server";
-// import Groq from "groq-sdk";
-
-// const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// export async function POST(req: Request) {
-//   try {
-//     const { topic } = await req.json();
-
-//     const chatCompletion = await groq.chat.completions.create({
-//       messages: [
-//         {
-//           role: "system",
-//           content: `You are an expert technical instructor. Your task is to generate a high-quality coding quiz.
-          
-//           STRICT RULES:
-//           1. Generate exactly 5 Multiple Choice Questions (MCQs).
-//           2. The difficulty should be a mix: 2 Easy, 2 Intermediate, 1 Advanced.
-//           3. Return the response ONLY in a valid JSON format.
-//           4. Each question must have:
-//              - "question": The question text.
-//              - "options": An array of 4 distinct strings.
-//              - "correctAnswer": The exact string from the options array that is correct.
-//              - "explanation": A 1-2 sentence logical reason WHY that answer is correct.
-          
-//           JSON STRUCTURE:
-//           {
-//             "questions": [
-//               {
-//                 "question": "...",
-//                 "options": ["A", "B", "C", "D"],
-//                 "correctAnswer": "A",
-//                 "explanation": "..."
-//               }
-//             ]
-//           }`
-//         },
-//         {
-//           role: "user",
-//           content: `Generate a professional quiz for a developer learning platform on the topic: ${topic}.`
-//         }
-//       ],
-//       model: "llama-3.1-8b-instant",
-//       response_format: { type: "json_object" }, // यह पक्का करता है कि AI सिर्फ JSON ही भेजे
-//       temperature: 0.7, // इसे 0.7 रखने से सवाल हर बार थोड़े अलग और क्रिएटिव आएंगे
-//     });
-
-//     const content = chatCompletion.choices[0].message.content;
-    
-//     if (!content) {
-//       throw new Error("AI failed to generate content");
-//     }
-
-//     const data = JSON.parse(content);
-//     return NextResponse.json(data);
-
-//   } catch (error) {
-//     console.error("Groq API Error:", error);
-//     return NextResponse.json({ error: "Failed to generate quiz" }, { status: 500 });
-//   }
-// }
-
-
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
@@ -119,7 +56,7 @@ STRICT RULES:
    - "correctAnswer": string that matches one option exactly
    - "explanation": short sentences explaining why the correct answer is right
 5. Keep questions practical and relevant for a learning platform.
-        
+
 JSON STRUCTURE:
 {
   "questions": [

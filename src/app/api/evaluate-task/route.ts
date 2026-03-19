@@ -69,8 +69,6 @@ function normalizeEvaluation(payload: unknown): EvaluationResult {
 
   const score = typeof data.score === "number" ? Math.max(0, Math.min(100, data.score)) : 0;
 
-  // Keep unlock behavior deterministic for the app:
-  // if score is 70+ then task is considered passed.
   const passed = score >= 70;
 
   return {

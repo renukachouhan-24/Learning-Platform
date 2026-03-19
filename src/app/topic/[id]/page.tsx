@@ -1,333 +1,3 @@
-// "use client";
-// import { useParams } from "next/navigation";
-// import { useState } from "react";
-// import { coursesData} from "@/lib/coursesData";
-
-// interface QuizQuestion {
-//   question: string;
-//   options: string[];
-//   correctAnswer: string;
-//   explanation: string;
-// }
-
-// export default function TopicPage() {
-//   const { id } = useParams();
-//   const [loading, setLoading] = useState(false);
-//   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
-//   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-//   const [showResults, setShowResults] = useState(false);
- 
-//   const allTopics = Object.values(coursesData).flatMap(course => course.topics);
-//   const currentTopic = allTopics.find(t => t.id === id);
-
-//   // AI Quiz Generate करने का फंक्शन
-//   const generateQuiz = async () => {
-//     setLoading(true);
-//     setShowResults(false);
-//     try {
-//       const response = await fetch("/api/generate-quiz", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({ topic: id }),
-//       });
-//       const data = await response.json();
-//       // मान लेते हैं कि AI हमें 'questions' एरे दे रहा है
-//       setQuiz(data.questions || []);
-//     } catch (error) {
-//       console.error("Error generating quiz:", error);
-//     }
-//     setLoading(false);
-//   };
-
-//   const handleOptionSelect = (qIdx: number, option: string) => {
-//     setSelectedAnswers({ ...selectedAnswers, [qIdx]: option });
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-gray-50 pb-20">
-//       {/* 3. यहाँ currentTopic का इस्तेमाल करें */}
-//       <div className="bg-black w-full aspect-video max-h-125 flex items-center justify-center">
-//         {currentTopic ? (
-//           <iframe
-//             className="w-full h-full max-w-4xl"
-//             src={`https://www.youtube.com/embed/${currentTopic.videoHindi}`}
-//             title={currentTopic.title}
-//             allowFullScreen
-//           ></iframe>
-//         ) : (
-//           <p className="text-white">Video not found</p>
-//         )}
-//       </div>
-
-//       <div className="max-w-4xl mx-auto p-6 mt-8">
-//         <h1 className="text-3xl font-bold mb-4">
-//           {currentTopic ? currentTopic.title : "Learning Topic"}
-//         </h1>
-        
-//         {/* 2. AI Quiz Controller */}
-//         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200">
-//           <div className="flex justify-between items-center mb-6">
-//             <h2 className="text-xl font-bold">Practice Quiz</h2>
-//             <button 
-//               onClick={generateQuiz}
-//               disabled={loading}
-//               className="px-6 py-2 bg-purple-600 text-white rounded-full font-bold hover:bg-purple-700 disabled:bg-gray-400 transition-all"
-//             >
-//               {loading ? "AI is thinking..." : "✨ Generate AI Quiz"}
-//             </button>
-//           </div>
-
-//           {/* 3. Quiz Questions Display */}
-//           {quiz.length > 0 && (
-//             <div className="space-y-8">
-//               {quiz.map((q, qIdx) => (
-//                 <div key={qIdx} className="border-b pb-6">
-//                   <p className="font-semibold text-lg mb-4">{qIdx + 1}. {q.question}</p>
-//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-//                     {q.options.map((opt: string) => (
-//                       <button
-//                         key={opt}
-//                         onClick={() => handleOptionSelect(qIdx, opt)}
-//                         className={`p-3 rounded-xl border text-left transition-all ${
-//                           selectedAnswers[qIdx] === opt ? "bg-blue-600 text-white border-blue-600" : "bg-gray-50 hover:bg-gray-100"
-//                         }`}
-//                       >
-//                         {opt}
-//                       </button>
-//                     ))}
-//                   </div>
-//                   {showResults && (
-//                     <div className={`mt-3 p-3 rounded-lg text-sm ${selectedAnswers[qIdx] === q.correctAnswer ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-//                       {selectedAnswers[qIdx] === q.correctAnswer ? "✅ Correct!" : `❌ Wrong. Answer: ${q.correctAnswer}`}
-//                       <p className="mt-1 italic opacity-80">{q.explanation}</p>
-//                     </div>
-//                   )}
-//                 </div>
-//               ))}
-              
-//               {!showResults && (
-//                 <button 
-//                   onClick={() => setShowResults(true)}
-//                   className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold text-xl hover:bg-green-700 transition-all"
-//                 >
-//                   Submit Quiz
-//                 </button>
-//               )}
-//             </div>
-//           )}
-
-//           {quiz.length === 0 && !loading && (
-//             <p className="text-center text-gray-400 py-10">Click the button above to generate a fresh AI quiz for this topic!</p>
-//           )}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-// "use client";
-// import { useParams, useRouter } from "next/navigation";
-// import { useState } from "react";
-// import { coursesData } from "@/lib/coursesData";
-
-// interface QuizQuestion {
-//   question: string;
-//   options: string[];
-//   correctAnswer: string;
-//   explanation: string;
-// }
-
-// export default function TopicPage() {
-//   const { id } = useParams();
-//   const router = useRouter();
-//   const [activeTab, setActiveTab] = useState<"video" | "quiz" | "tasks">("video");
-//   const [loading, setLoading] = useState(false);
-//   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
-//   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-//   const [showResults, setShowResults] = useState(false);
-
-//   const allTopics = Object.values(coursesData).flatMap(course => course.topics);
-//   const currentTopic = allTopics.find(t => t.id === id);
-
-//   const generateQuiz = async () => {
-//     setLoading(true);
-//     setShowResults(false);
-//     setSelectedAnswers({});
-//     try {
-//       const response = await fetch("/api/generate-quiz", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({ topic: id }),
-//       });
-
-//       if (!response.ok) {
-//         throw new Error("Quiz generation failed");
-//       }
-
-//       const data = await response.json();
-//       setQuiz(data.questions || []);
-//     } catch (error) {
-//       console.error("Error generating quiz:", error);
-//       setQuiz([]);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const score = quiz.reduce((total, question, index) => {
-//     return total + (selectedAnswers[index] === question.correctAnswer ? 1 : 0);
-//   }, 0);
-
-//   if (!currentTopic) return <div className="bg-[#0a0a0c] text-white h-screen flex items-center justify-center">Loading...</div>;
-
-//   return (
-//     <div className="min-h-screen bg-[#0a0a0c] text-white font-sans selection:bg-blue-500/30">
-//       {/* Top Header */}
-//       <div className="max-w-5xl mx-auto px-6 py-8">
-//         <button onClick={() => router.back()} className="text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
-//         <div className="flex items-center gap-4">
-//             <h1 className="text-3xl font-black">{currentTopic.title}</h1>
-//             <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-400">Step 1</span>
-//         </div>
-//         <p className="text-gray-500 mt-2">{currentTopic.description}</p>
-//       </div>
-
-//       {/* Tabs Navigation */}
-//       <div className="max-w-5xl mx-auto px-6 mb-8">
-//         <div className="bg-[#121214] p-1.5 rounded-2xl border border-white/5 inline-flex">
-//           {(["video", "quiz", "tasks"] as const).map((tab) => (
-//             <button
-//               key={tab}
-//               onClick={() => setActiveTab(tab)}
-//               className={`px-8 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
-//                 activeTab === tab ? "bg-blue-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
-//               }`}
-//             >
-//               {tab}
-//             </button>
-//           ))}
-//         </div>
-//       </div>
-
-//       {/* Main Content Area */}
-//       <div className="max-w-5xl mx-auto px-6 pb-20">
-        
-//         {/* --- VIDEO TAB --- */}
-//         {activeTab === "video" && (
-//           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-//             <div className="relative aspect-video rounded-4xl overflow-hidden border border-white/10 bg-black shadow-2xl shadow-blue-500/5">
-//               <iframe
-//                 className="w-full h-full"
-//                 src={`https://www.youtube.com/embed/${currentTopic.videoHindi}`}
-//                 title={currentTopic.title}
-//                 allowFullScreen
-//               ></iframe>
-//             </div>
-//             <p className="text-center text-gray-500 text-sm italic">After watching, head over to the Quiz tab to test your knowledge.</p>
-//           </div>
-//         )}
-
-//         {/* --- QUIZ TAB --- */}
-//         {activeTab === "quiz" && (
-//           <div className="bg-[#121214] rounded-4xl border border-white/5 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500">
-//             <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-6">
-//                 <div>
-//                     <h2 className="text-2xl font-black mb-1">AI Practice Quiz</h2>
-//                     <p className="text-gray-500 text-sm">Powered by Llama 3.1 8B</p>
-//                 </div>
-//                 <button 
-//                   onClick={generateQuiz}
-//                   disabled={loading}
-//                   className="px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-//                 >
-//                   {loading ? "AI is generating..." : "✨ Generate Quiz"}
-//                 </button>
-//             </div>
-
-//             {quiz.length > 0 ? (
-//                 <div className="space-y-12">
-//                 {showResults && (
-//                   <div className="rounded-3xl border border-blue-500/20 bg-blue-500/10 p-6">
-//                     <p className="text-sm uppercase tracking-[0.2em] text-blue-300 font-bold">Quiz Result</p>
-//                     <h3 className="mt-2 text-3xl font-black">{score} / {quiz.length}</h3>
-//                     <p className="mt-2 text-sm text-gray-400">Each question now shows the correct answer and the explanation.</p>
-//                   </div>
-//                 )}
-//                     {quiz.map((q, qIdx) => (
-//                         <div key={qIdx} className="space-y-6">
-//                             <p className="text-xl font-bold leading-relaxed">{qIdx + 1}. {q.question}</p>
-//                             <div className="grid grid-cols-1 gap-3">
-//                                 {q.options.map((opt) => (
-//                                     <button
-//                                         key={opt}
-//                                         onClick={() => handleOptionSelect(qIdx, opt)}
-//                                         className={`p-5 rounded-2xl border text-left transition-all font-medium ${
-//                                             showResults
-//                                               ? opt === q.correctAnswer
-//                                                 ? "bg-green-500/10 border-green-500 text-green-300"
-//                                                 : selectedAnswers[qIdx] === opt
-//                                                   ? "bg-red-500/10 border-red-500 text-red-300"
-//                                                   : "bg-white/5 border-white/5 text-gray-400"
-//                                               : selectedAnswers[qIdx] === opt
-//                                                 ? "bg-blue-600/10 border-blue-500 text-blue-400"
-//                                                 : "bg-white/5 border-white/5 hover:border-white/10"
-//                                         }`}
-//                                     >
-//                                         {opt}
-//                                     </button>
-//                                 ))}
-//                             </div>
-//                             {showResults && (
-//                                 <div className={`rounded-2xl border p-5 ${selectedAnswers[qIdx] === q.correctAnswer ? "border-green-500/30 bg-green-500/10" : "border-red-500/30 bg-red-500/10"}`}>
-//                                     <p className="font-bold text-sm uppercase tracking-wider text-white/80">
-//                                       Your answer: {selectedAnswers[qIdx] || "Not answered"}
-//                                     </p>
-//                                     <p className="mt-2 text-base font-semibold text-white">
-//                                       Correct answer: {q.correctAnswer}
-//                                     </p>
-//                                     <p className="mt-3 text-sm leading-7 text-gray-300">
-//                                       {q.explanation}
-//                                     </p>
-//                                 </div>
-//                             )}
-//                         </div>
-//                     ))}
-//                     {!showResults && (
-//                         <button onClick={() => setShowResults(true)} className="w-full py-5 bg-white text-black rounded-3xl font-black text-lg hover:bg-gray-200 transition-all">Submit Answers</button>
-//                     )}
-//                 </div>
-//             ) : (
-//                 <div className="text-center py-20">
-//                     <p className="text-gray-600 mb-6">Ready to test your skills? Click the generate button above.</p>
-//                 </div>
-//             )}
-//         </div>
-//         )}
-
-//         {/* --- TASKS TAB --- */}
-//         {activeTab === "tasks" && (
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-500">
-//             <div className="p-8 bg-linear-to-br from-white/5 to-transparent border border-white/5 rounded-4xl">
-//                 <span className="text-blue-500 text-xs font-black uppercase tracking-widest">Task 1</span>
-//                 <h3 className="text-2xl font-bold mt-2 mb-4">Structure Webpage</h3>
-//                 <p className="text-gray-400 text-sm mb-6">Create a page with one heading, one paragraph and an image.</p>
-//                 <button className="text-xs font-bold bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">Mark Completed</button>
-//             </div>
-//           </div>
-//         )}
-
-//       </div>
-//     </div>
-//   );
-
-//   function handleOptionSelect(qIdx: number, option: string) {
-//     if (showResults) return;
-//     setSelectedAnswers({ ...selectedAnswers, [qIdx]: option });
-//   }
-// }
-
-
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
@@ -335,6 +5,7 @@ import { coursesData } from "@/lib/coursesData";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { ArrowLeft, BookOpenText, Brain, CheckCircle2, Code2, Languages, PlayCircle, Sparkles } from "lucide-react";
 
 interface QuizQuestion {
   question: string;
@@ -729,30 +400,67 @@ export default function TopicPage() {
 
   if (!currentTopic) return <div className="bg-[#f4f3f9] text-slate-700 h-screen flex items-center justify-center">Loading...</div>;
 
+  const topicTaskTotal = currentTopic.miniTasks.length;
+  const topicTaskDone = completedTasks.length;
+  const topicTaskPercent = topicTaskTotal > 0 ? Math.round((topicTaskDone / topicTaskTotal) * 100) : 0;
+
   return (
-    <div className="min-h-screen bg-[#f4f3f9] text-slate-900 font-sans selection:bg-purple-100">
+    <div className="app-surface min-h-screen bg-[#f4f3f9] text-slate-900 font-sans selection:bg-purple-100 relative overflow-hidden">
+      <div className="pointer-events-none absolute -top-20 -left-20 w-80 h-80 rounded-full bg-violet-200/45 blur-3xl" />
+      <div className="pointer-events-none absolute top-24 -right-16 w-80 h-80 rounded-full bg-pink-200/45 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/3 w-md h-112 rounded-full bg-cyan-100/45 blur-3xl" />
+
       {/* Top Header */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <button onClick={() => router.back()} className="text-slate-500 hover:text-violet-500 mb-6 transition-colors font-medium">← Back to Path</button>
-        <div className="flex items-center gap-4">
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-8">
+        <button
+          onClick={() => router.back()}
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/85 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:text-violet-500 hover:shadow"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Path
+        </button>
+
+        <div className="rounded-3xl border border-violet-100 bg-white/85 backdrop-blur p-6 md:p-7 shadow-[0_16px_45px_rgba(124,58,237,0.12)]">
+          <div className="flex items-center gap-4">
             <h1 className="text-3xl font-black">{currentTopic.title}</h1>
-            <span className="px-3 py-1 bg-violet-50 border border-violet-100 rounded-full text-[10px] uppercase tracking-widest font-bold text-slate-500">Step 1</span>
+            <span className="px-3 py-1 bg-violet-50 border border-violet-100 rounded-full text-[10px] uppercase tracking-widest font-bold text-slate-500">Topic</span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-violet-50 border border-violet-100 rounded-full text-[10px] uppercase tracking-widest font-bold text-violet-600">
+              <Sparkles className="h-3.5 w-3.5" /> Guided
+            </span>
+          </div>
+          <p className="text-slate-500 mt-2">{currentTopic.description}</p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
+              <BookOpenText className="h-3.5 w-3.5" /> 10 Quiz Questions
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
+              <Code2 className="h-3.5 w-3.5" /> {topicTaskTotal} Coding Tasks
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
+              <Brain className="h-3.5 w-3.5" /> AI Checked
+            </span>
+          </div>
         </div>
-        <p className="text-slate-500 mt-2">{currentTopic.description}</p>
       </div>
 
       {/* Tabs Navigation & Language Toggle */}
-      <div className="max-w-5xl mx-auto px-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="relative z-10 max-w-5xl mx-auto px-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="bg-white p-1.5 rounded-2xl border border-slate-200 inline-flex shadow-sm">
-          {(["video", "quiz", "tasks"] as const).map((tab) => (
+          {([
+            { id: "video", icon: PlayCircle },
+            { id: "quiz", icon: Brain },
+            { id: "tasks", icon: Code2 },
+          ] as const).map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={`px-8 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
-                activeTab === tab ? "bg-violet-500 text-white shadow" : "text-slate-500 hover:text-violet-500"
+                activeTab === tab.id ? "bg-violet-500 text-white shadow" : "text-slate-500 hover:text-violet-500"
               }`}
             >
-              {tab}
+              <span className="inline-flex items-center gap-2">
+                <tab.icon className="h-4 w-4" /> {tab.id}
+              </span>
             </button>
           ))}
         </div>
@@ -764,20 +472,20 @@ export default function TopicPage() {
                     onClick={() => setVideoLanguage("English")}
               className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "English" ? "bg-violet-500 text-white shadow" : "text-slate-500"}`}
                 >
-                    🇺🇸 English
+                    <Languages className="h-3.5 w-3.5" /> English
                 </button>
                 <button 
                     onClick={() => setVideoLanguage("Hindi")}
               className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "Hindi" ? "bg-violet-500 text-white shadow" : "text-slate-500"}`}
                 >
-                    🇮🇳 Hindi
+                    <Languages className="h-3.5 w-3.5" /> Hindi
                 </button>
             </div>
         )}
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-5xl mx-auto px-6 pb-20">
+      <div className="relative z-10 max-w-5xl mx-auto px-6 pb-20">
         
         {/* --- VIDEO TAB --- */}
         {activeTab === "video" && (
@@ -889,8 +597,12 @@ export default function TopicPage() {
               <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Mini Tasks</p>
               <h3 className="text-2xl font-black mt-2">{currentTopic.title} Coding Drills</h3>
               <p className="text-slate-500 mt-2 text-sm">
-                Completed {completedTasks.length}/{currentTopic.miniTasks.length}
+                Completed {topicTaskDone}/{topicTaskTotal}
               </p>
+              <div className="mt-3 h-2 w-full rounded-full bg-white/80 border border-violet-100 overflow-hidden">
+                <div className="h-full rounded-full bg-linear-to-r from-violet-500 to-pink-400 transition-all duration-700" style={{ width: `${topicTaskPercent}%` }} />
+              </div>
+              <p className="mt-2 text-xs font-semibold text-violet-600">Topic progress: {topicTaskPercent}%</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -903,8 +615,8 @@ export default function TopicPage() {
                     key={task}
                     className={`p-8 border rounded-4xl relative overflow-hidden ${
                       isDone
-                        ? "bg-emerald-50 border-emerald-200"
-                        : "bg-white border-slate-200"
+                        ? "bg-emerald-50 border-emerald-200 shadow-[0_10px_28px_rgba(16,185,129,0.12)]"
+                        : "bg-white border-slate-200 hover:border-violet-300 hover:shadow-[0_16px_38px_rgba(124,58,237,0.14)] transition-all"
                     }`}
                   >
                     <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -918,6 +630,12 @@ export default function TopicPage() {
                     <div className={`mb-3 text-xs font-bold uppercase tracking-widest ${isDone ? "text-emerald-600" : isLocked ? "text-slate-400" : "text-violet-500"}`}>
                       {isDone ? "Completed" : isLocked ? "Locked" : "Ready to Solve"}
                     </div>
+
+                    {isDone && (
+                      <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Task done
+                      </div>
+                    )}
 
                     <button
                       type="button"
