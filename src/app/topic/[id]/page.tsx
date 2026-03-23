@@ -6,6 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ArrowLeft, BookOpenText, Brain, CheckCircle2, Code2, Languages, PlayCircle, Sparkles } from "lucide-react";
+import { calculateStreakUpdate, getTodayDateString } from "@/lib/streakUtils";
 
 interface QuizQuestion {
   question: string;
@@ -134,6 +135,8 @@ export default function TopicPage() {
   const [taskFeedback, setTaskFeedback] = useState<Record<number, { passed: boolean; score: number; feedback: string; missing: string[] }>>({});
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const getScopedTaskKey = (topicId: string, uid: string) => `mini-tasks:${uid}:${topicId}`;
+  const getScopedDraftKey = (topicId: string, uid: string) => `mini-task-drafts:${uid}:${topicId}`;
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -147,47 +150,58 @@ export default function TopicPage() {
   const currentTopic = allTopics.find(t => t.id === id);
 
   useEffect(() => {
-    if (!currentTopic || typeof window === "undefined") return;
+    if (!currentTopic || typeof window === "undefined" || !user) return;
+
+    const scopedTaskKey = getScopedTaskKey(currentTopic.id, user.uid);
+    const scopedDraftKey = getScopedDraftKey(currentTopic.id, user.uid);
 
     // Step 1: Load from localStorage immediately (fast, offline)
-    const saved = window.localStorage.getItem(`mini-tasks:${currentTopic.id}`);
+    const scopedSaved = window.localStorage.getItem(scopedTaskKey);
+    const legacySaved = window.localStorage.getItem(`mini-tasks:${currentTopic.id}`);
+    const saved = scopedSaved ?? legacySaved;
     const parsed = saved ? JSON.parse(saved) : [];
     const localCompleted: number[] = Array.isArray(parsed)
       ? parsed.filter((item): item is number => typeof item === "number")
       : [];
+    if (!scopedSaved && localCompleted.length > 0) {
+      window.localStorage.setItem(scopedTaskKey, JSON.stringify(localCompleted));
+    }
     setCompletedTasks(localCompleted);
 
-    const savedDrafts = window.localStorage.getItem(`mini-task-drafts:${currentTopic.id}`);
+    const scopedSavedDrafts = window.localStorage.getItem(scopedDraftKey);
+    const legacySavedDrafts = window.localStorage.getItem(`mini-task-drafts:${currentTopic.id}`);
+    const savedDrafts = scopedSavedDrafts ?? legacySavedDrafts;
+    if (!scopedSavedDrafts && legacySavedDrafts) {
+      window.localStorage.setItem(scopedDraftKey, legacySavedDrafts);
+    }
     setTaskDrafts(savedDrafts ? (JSON.parse(savedDrafts) as Record<number, string>) : {});
     setActiveTaskIndex(null);
 
-    // Step 2: Sync from Firestore if user is logged in (cross-device)
-    if (user) {
-      const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
-      getDoc(docRef)
-        .then((snap) => {
-          if (snap.exists()) {
-            const firestoreData = snap.data();
-            const firestoreCompleted: number[] = Array.isArray(firestoreData.completedTasks)
-              ? firestoreData.completedTasks.filter((item: unknown): item is number => typeof item === "number")
-              : [];
-            // Merge: union of localStorage + Firestore (tak koi bhi device ka data na khoye)
-            const merged = Array.from(
-              new Set([...localCompleted, ...firestoreCompleted])
-            ).sort((a, b) => a - b);
-            setCompletedTasks(merged);
-            window.localStorage.setItem(`mini-tasks:${currentTopic.id}`, JSON.stringify(merged));
+    // Step 2: Sync from Firestore (cross-device)
+    const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
+    getDoc(docRef)
+      .then((snap) => {
+        if (snap.exists()) {
+          const firestoreData = snap.data();
+          const firestoreCompleted: number[] = Array.isArray(firestoreData.completedTasks)
+            ? firestoreData.completedTasks.filter((item: unknown): item is number => typeof item === "number")
+            : [];
+          // Merge: union of localStorage + Firestore (tak koi bhi device ka data na khoye)
+          const merged = Array.from(
+            new Set([...localCompleted, ...firestoreCompleted])
+          ).sort((a, b) => a - b);
+          setCompletedTasks(merged);
+          window.localStorage.setItem(scopedTaskKey, JSON.stringify(merged));
 
-            // If local has newer progress, push merged state back to Firestore.
-            if (merged.length !== firestoreCompleted.length) {
-              setDoc(docRef, { completedTasks: merged }, { merge: true }).catch((err) => {
-                handleFirestoreSyncError(err, "save");
-              });
-            }
+          // If local has newer progress, push merged state back to Firestore.
+          if (merged.length !== firestoreCompleted.length) {
+            setDoc(docRef, { completedTasks: merged }, { merge: true }).catch((err) => {
+              handleFirestoreSyncError(err, "save");
+            });
           }
-        })
-        .catch((err) => handleFirestoreSyncError(err, "load"));
-    }
+        }
+      })
+      .catch((err) => handleFirestoreSyncError(err, "load"));
   }, [currentTopic, user]);
 
   useEffect(() => {
@@ -288,6 +302,9 @@ export default function TopicPage() {
     if (!currentTopic) return;
     if (index > unlockedIndex) return;
 
+    const uid = user?.uid ?? auth.currentUser?.uid;
+    if (!uid) return;
+
     setActiveTaskIndex(index);
 
     if (!taskDrafts[index]) {
@@ -296,7 +313,7 @@ export default function TopicPage() {
       setTaskDrafts(updatedDrafts);
 
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(`mini-task-drafts:${currentTopic.id}`, JSON.stringify(updatedDrafts));
+        window.localStorage.setItem(getScopedDraftKey(currentTopic.id, uid), JSON.stringify(updatedDrafts));
       }
     }
 
@@ -308,11 +325,45 @@ export default function TopicPage() {
   const updateTaskDraft = (index: number, value: string) => {
     if (!currentTopic) return;
 
+    const uid = user?.uid ?? auth.currentUser?.uid;
+    if (!uid) return;
+
     const updatedDrafts = { ...taskDrafts, [index]: value };
     setTaskDrafts(updatedDrafts);
 
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(`mini-task-drafts:${currentTopic.id}`, JSON.stringify(updatedDrafts));
+      window.localStorage.setItem(getScopedDraftKey(currentTopic.id, uid), JSON.stringify(updatedDrafts));
+    }
+  };
+
+  const updateDailyStreak = async () => {
+    if (!user) return;
+
+    const profileDocRef = doc(db, "users", user.uid);
+    const todayDate = getTodayDateString();
+
+    try {
+      const profileSnap = await getDoc(profileDocRef);
+
+      const data = profileSnap.exists() ? profileSnap.data() : {};
+      const previousLastActiveDate = typeof data.lastActiveDate === "string" ? data.lastActiveDate : null;
+      const previousCurrentStreak = typeof data.currentStreak === "number" ? data.currentStreak : 0;
+      const previousLongestStreak = typeof data.longestStreak === "number" ? data.longestStreak : 0;
+
+      const newStreak = calculateStreakUpdate(previousLastActiveDate, previousCurrentStreak);
+      const newLongestStreak = Math.max(previousLongestStreak, newStreak);
+
+      await setDoc(
+        profileDocRef,
+        {
+          lastActiveDate: todayDate,
+          currentStreak: newStreak,
+          longestStreak: newLongestStreak,
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      handleFirestoreSyncError(err, "save");
     }
   };
 
@@ -368,16 +419,22 @@ export default function TopicPage() {
         },
       }));
 
+      // Streak should update whenever user passes a task (even if task was already completed before).
+      if (data.passed) {
+        await updateDailyStreak();
+      }
+
       if (data.passed && activeTaskIndex <= unlockedIndex && !completedSet.has(activeTaskIndex)) {
         const updated = [...completedTasks, activeTaskIndex].sort((a, b) => a - b);
         setCompletedTasks(updated);
         // Save to localStorage (fast, offline)
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(`mini-tasks:${currentTopic.id}`, JSON.stringify(updated));
+        if (typeof window !== "undefined" && user) {
+          window.localStorage.setItem(getScopedTaskKey(currentTopic.id, user.uid), JSON.stringify(updated));
         }
         // Save to Firestore (cross-device, account-based)
         if (user) {
           const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
+
           setDoc(docRef, { completedTasks: updated }, { merge: true }).catch((err) => {
             handleFirestoreSyncError(err, "save");
           });

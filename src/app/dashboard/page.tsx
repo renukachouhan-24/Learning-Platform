@@ -2,11 +2,12 @@
 import { coursesData } from "@/lib/coursesData";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, onSnapshot } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image"; 
-import { BookOpenText, Brain, Code2, Rocket, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpenText, Brain, Code2, Rocket, Sparkles, Flame, type LucideIcon } from "lucide-react";
+import { formatStreakDisplay } from "@/lib/streakUtils";
 
 const paths = [
   {
@@ -39,12 +40,15 @@ export default function Dashboard() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [completedTaskCounts, setCompletedTaskCounts] = useState<Record<string, number>>({});
   const [mounted, setMounted] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const router = useRouter();
 
   const allTopics = useMemo(() => Object.values(coursesData).flatMap((course) => course.topics), []);
   const totalTopics = allTopics.length;
   const totalQuizQuestions = totalTopics * 10;
   const totalTasks = allTopics.reduce((sum, topic) => sum + topic.miniTasks.length, 0);
+
+  const getScopedTaskKey = (topicId: string, uid: string) => `mini-tasks:${uid}:${topicId}`;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -62,17 +66,71 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!user) return;
+
+    // Real-time listener for streak updates
+    const profileDocRef = doc(db, "users", user.uid);
+    const unsubscribe = onSnapshot(
+      profileDocRef,
+      (profileSnap) => {
+        if (profileSnap.exists()) {
+          const data = profileSnap.data();
+          const fetchedLastActiveDate = data.lastActiveDate ?? null;
+          const fetchedCurrentStreak = data.currentStreak ?? 0;
+
+          if (!fetchedLastActiveDate) {
+            setCurrentStreak(0);
+            return;
+          }
+
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const lastActive = new Date(fetchedLastActiveDate);
+          lastActive.setHours(0, 0, 0, 0);
+
+          const daysDiff = (today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+
+          // 0: active today, 1: active yesterday (streak still alive), >1: streak broken
+          if (daysDiff <= 1) {
+            setCurrentStreak(fetchedCurrentStreak > 0 ? fetchedCurrentStreak : 1);
+          } else {
+            setCurrentStreak(0);
+          }
+        } else {
+          setCurrentStreak(0);
+        }
+      },
+      (error) => {
+        // Silent fail for offline/errors
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Failed to listen to streak data:", error);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
 
     const loadProgress = async () => {
       const topicProgressMap = new Map<string, Set<number>>();
 
       for (const topic of allTopics) {
-        const saved = window.localStorage.getItem(`mini-tasks:${topic.id}`);
+        const scopedKey = getScopedTaskKey(topic.id, user.uid);
+        const scopedSaved = window.localStorage.getItem(scopedKey);
+        const legacySaved = window.localStorage.getItem(`mini-tasks:${topic.id}`);
+        const saved = scopedSaved ?? legacySaved;
         const parsed: unknown = saved ? JSON.parse(saved) : [];
         const localCompleted = Array.isArray(parsed)
           ? parsed.filter((item): item is number => typeof item === "number")
           : [];
+        // One-time migration from legacy key -> user-scoped key.
+        if (!scopedSaved && localCompleted.length > 0) {
+          window.localStorage.setItem(scopedKey, JSON.stringify(localCompleted));
+        }
         topicProgressMap.set(topic.id, new Set(localCompleted));
       }
 
@@ -82,9 +140,6 @@ export default function Dashboard() {
         localCounts[topic.id] = topicProgressMap.get(topic.id)?.size ?? 0;
       }
       setCompletedTaskCounts(localCounts);
-
-      // Then enhance with cloud data (if logged in).
-      if (!user) return;
 
       try {
         const snapshot = await getDocs(collection(db, "users", user.uid, "progress"));
@@ -268,6 +323,29 @@ export default function Dashboard() {
               <div className="rounded-2xl bg-white border border-violet-100 px-4 py-3">
                 <p className="text-xl font-black text-slate-900">{journeyPercent}%</p>
                 <p className="text-[10px] uppercase tracking-widest text-slate-500">Journey</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Streak Widget */}
+          <div className={`mt-8 rounded-3xl border border-orange-200/70 bg-linear-to-br from-orange-50 to-amber-50 p-6 md:p-8 shadow-[0_12px_40px_rgba(251,146,60,0.15)] ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-95"}`} style={{ transition: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)", transitionDelay: "200ms" }}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="shrink-0 w-16 h-16 bg-linear-to-br from-orange-400 to-red-500 rounded-2xl flex items-center justify-center text-3xl animate-pulse" style={{ animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }}>
+                  <Flame className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-orange-600 font-bold">Daily Streak</p>
+                  <h3 className="text-3xl md:text-4xl font-black text-slate-900 mt-1">{currentStreak}</h3>
+                  <p className="text-sm text-slate-600 mt-1">{formatStreakDisplay(currentStreak)}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 mb-2">Keep learning daily to grow your streak!</p>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 border border-orange-200 text-sm font-semibold text-orange-600">
+                  <Sparkles className="h-4 w-4" />
+                  Complete a task today
+                </div>
               </div>
             </div>
           </div>

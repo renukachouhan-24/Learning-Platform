@@ -16,6 +16,7 @@ export default function PathPage() {
   const course = coursesData[id as string];
   const isFullStack = id === "full-stack";
   const accent = isFullStack ? "from-violet-500 to-fuchsia-500" : "from-pink-500 to-rose-500";
+  const getScopedTaskKey = (topicId: string, uid: string) => `mini-tasks:${uid}:${topicId}`;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -25,37 +26,41 @@ export default function PathPage() {
   }, []);
 
   useEffect(() => {
-    if (!course || typeof window === "undefined") return;
+    if (!course || typeof window === "undefined" || !user) return;
 
     const loadPathProgress = async () => {
       const topicProgressMap = new Map<string, Set<number>>();
 
       for (const topic of course.topics) {
-        const saved = window.localStorage.getItem(`mini-tasks:${topic.id}`);
+        const scopedKey = getScopedTaskKey(topic.id, user.uid);
+        const scopedSaved = window.localStorage.getItem(scopedKey);
+        const legacySaved = window.localStorage.getItem(`mini-tasks:${topic.id}`);
+        const saved = scopedSaved ?? legacySaved;
         const parsed: unknown = saved ? JSON.parse(saved) : [];
         const localCompleted = Array.isArray(parsed)
           ? parsed.filter((item): item is number => typeof item === "number")
           : [];
+        if (!scopedSaved && localCompleted.length > 0) {
+          window.localStorage.setItem(scopedKey, JSON.stringify(localCompleted));
+        }
         topicProgressMap.set(topic.id, new Set(localCompleted));
       }
 
-      if (user) {
-        try {
-          const snapshot = await getDocs(collection(db, "users", user.uid, "progress"));
-          snapshot.forEach((docSnap) => {
-            const topicId = docSnap.id;
-            const data = docSnap.data();
-            const firestoreCompleted = Array.isArray(data.completedTasks)
-              ? data.completedTasks.filter((item: unknown): item is number => typeof item === "number")
-              : [];
+      try {
+        const snapshot = await getDocs(collection(db, "users", user.uid, "progress"));
+        snapshot.forEach((docSnap) => {
+          const topicId = docSnap.id;
+          const data = docSnap.data();
+          const firestoreCompleted = Array.isArray(data.completedTasks)
+            ? data.completedTasks.filter((item: unknown): item is number => typeof item === "number")
+            : [];
 
-            const existing = topicProgressMap.get(topicId) ?? new Set<number>();
-            firestoreCompleted.forEach((idx) => existing.add(idx));
-            topicProgressMap.set(topicId, existing);
-          });
-        } catch {
-          // Offline/error case: localStorage progress still works.
-        }
+          const existing = topicProgressMap.get(topicId) ?? new Set<number>();
+          firestoreCompleted.forEach((idx) => existing.add(idx));
+          topicProgressMap.set(topicId, existing);
+        });
+      } catch {
+        // Offline/error case: localStorage progress still works.
       }
 
       const nextCounts: Record<string, number> = {};
