@@ -41,6 +41,9 @@ export default function Dashboard() {
   const [completedTaskCounts, setCompletedTaskCounts] = useState<Record<string, number>>({});
   const [mounted, setMounted] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalXP, setTotalXP] = useState(0);
+  const [userLevel, setUserLevel] = useState(1);
+  const [resumeTopic, setResumeTopic] = useState<{ topicId: string; topicTitle: string; pathId: string } | null>(null);
   const router = useRouter();
 
   const allTopics = useMemo(() => Object.values(coursesData).flatMap((course) => course.topics), []);
@@ -77,6 +80,25 @@ export default function Dashboard() {
           const data = profileSnap.data();
           const fetchedLastActiveDate = data.lastActiveDate ?? null;
           const fetchedCurrentStreak = data.currentStreak ?? 0;
+          const fetchedTotalXP = typeof data.totalXP === "number" ? data.totalXP : 0;
+          const fetchedLevel = typeof data.level === "number" ? data.level : Math.floor(fetchedTotalXP / 100) + 1;
+          const fetchedTopicId = typeof data.lastVisitedTopicId === "string" ? data.lastVisitedTopicId : "";
+          const fetchedTopicTitle = typeof data.lastVisitedTopicTitle === "string" ? data.lastVisitedTopicTitle : "";
+          const fetchedPathId = typeof data.lastVisitedPathId === "string" ? data.lastVisitedPathId : "";
+
+          setTotalXP(fetchedTotalXP);
+          setUserLevel(fetchedLevel);
+
+          if (fetchedTopicId && fetchedPathId) {
+            const fallbackTitle = allTopics.find((topic) => topic.id === fetchedTopicId)?.title ?? "Continue Learning";
+            setResumeTopic({
+              topicId: fetchedTopicId,
+              topicTitle: fetchedTopicTitle || fallbackTitle,
+              pathId: fetchedPathId,
+            });
+          } else {
+            setResumeTopic(null);
+          }
 
           if (!fetchedLastActiveDate) {
             setCurrentStreak(0);
@@ -98,6 +120,9 @@ export default function Dashboard() {
             setCurrentStreak(0);
           }
         } else {
+          setTotalXP(0);
+          setUserLevel(1);
+          setResumeTopic(null);
           setCurrentStreak(0);
         }
       },
@@ -110,7 +135,7 @@ export default function Dashboard() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [allTopics, user]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
@@ -172,8 +197,7 @@ export default function Dashboard() {
 
   const totalCompletedTasks = allTopics.reduce((sum, topic) => sum + (completedTaskCounts[topic.id] ?? 0), 0);
   const journeyPercent = totalTasks > 0 ? Math.round((totalCompletedTasks / totalTasks) * 100) : 0;
-  const learnerLevel =
-    journeyPercent >= 85 ? "Advanced" : journeyPercent >= 55 ? "Intermediate" : journeyPercent >= 25 ? "Beginner+" : "Starter";
+  const resumePathTitle = resumeTopic ? coursesData[resumeTopic.pathId]?.title ?? "Learning Path" : "";
 
   const pathProgressById = Object.entries(coursesData).reduce<Record<string, { percent: number; completed: number; total: number; topics: number }>>(
     (acc, [pathId, course]) => {
@@ -218,7 +242,7 @@ export default function Dashboard() {
       <div className="pointer-events-none absolute bottom-0 left-1/3 w-md h-112 rounded-full bg-cyan-100/50 blur-3xl" />
 
       <nav className="sticky top-0 z-40 border-b border-purple-100/70 bg-white/90 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex justify-between items-center">
+        <div className="w-full px-3 md:px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2 font-extrabold text-violet-500 text-xl">
             <div className="w-8 h-8 bg-violet-500 rounded-lg flex items-center justify-center text-sm text-white">✦</div>
             DevLearn AI
@@ -252,7 +276,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <main className="relative z-10 max-w-6xl mx-auto px-6 pt-14 pb-20 space-y-10">
+      <main className="relative z-10 w-full px-3 md:px-4 pt-10 pb-16 space-y-8">
         <div className="rounded-4xl border border-violet-100 bg-white/80 backdrop-blur p-8 md:p-12 shadow-[0_25px_80px_rgba(124,58,237,0.12)]">
           <div className="text-center">
 
@@ -279,6 +303,24 @@ export default function Dashboard() {
                 Explore AI Path
               </button>
             </div>
+
+            {resumeTopic && (
+              <div className="mt-6 mx-auto max-w-2xl rounded-2xl border border-violet-100 bg-violet-50/80 p-4 md:p-5 text-left shadow-sm">
+                <p className="text-[11px] uppercase tracking-widest text-violet-500 font-black">Resume Learning</p>
+                <div className="mt-1 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <p className="text-slate-900 font-bold">{resumeTopic.topicTitle}</p>
+                    <p className="text-sm text-slate-500">{resumePathTitle}</p>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/topic/${resumeTopic.topicId}`)}
+                    className="inline-flex items-center justify-center rounded-xl bg-white border border-violet-200 px-4 py-2 text-sm font-semibold text-violet-600 hover:bg-violet-100 transition"
+                  >
+                    Continue Topic →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10">
@@ -317,7 +359,7 @@ export default function Dashboard() {
                 <p className="text-[10px] uppercase tracking-widest text-slate-500">Completed</p>
               </div>
               <div className="rounded-2xl bg-white border border-violet-100 px-4 py-3">
-                <p className="text-xl font-black text-slate-900">{learnerLevel}</p>
+                <p className="text-xl font-black text-slate-900">Lv {userLevel}</p>
                 <p className="text-[10px] uppercase tracking-widest text-slate-500">Level</p>
               </div>
               <div className="rounded-2xl bg-white border border-violet-100 px-4 py-3">
@@ -342,6 +384,7 @@ export default function Dashboard() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-slate-500 mb-2">Keep learning daily to grow your streak!</p>
+                <p className="text-xs text-slate-500 mb-2 font-semibold">XP: {totalXP}</p>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 border border-orange-200 text-sm font-semibold text-orange-600">
                   <Sparkles className="h-4 w-4" />
                   Complete a task today

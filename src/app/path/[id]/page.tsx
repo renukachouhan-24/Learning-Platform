@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
-import { BookOpenText, Brain, CheckCircle2, Flame, Lock, Rocket, Sparkles, Target } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpenText, Brain, CheckCircle2, Clock3, Flame, Lock, Rocket, Sparkles, Target } from "lucide-react";
 
 export default function PathPage() {
   const { id } = useParams();
@@ -106,12 +106,12 @@ export default function PathPage() {
       <div className="pointer-events-none absolute top-28 -right-20 w-96 h-96 rounded-full bg-pink-200/45 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/3 h-112 w-md rounded-full bg-cyan-100/55 blur-3xl" />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 pt-12 pb-20">
+      <div className="relative z-10 w-full px-3 md:px-4 pt-10 pb-16">
         <button 
           onClick={() => router.push("/dashboard")}
           className="text-slate-500 hover:text-violet-500 mb-8 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/80 px-4 py-2 text-sm font-semibold shadow-sm transition-all hover:shadow"
         >
-          ← Back to Paths
+          <ArrowLeft className="h-4 w-4" /> Back to Paths
         </button>
 
         <div className="rounded-4xl border border-violet-100 bg-white/85 backdrop-blur p-7 md:p-9 shadow-[0_24px_70px_rgba(124,58,237,0.15)] mb-10 transition-all duration-700 opacity-100 translate-y-0">
@@ -183,7 +183,18 @@ export default function PathPage() {
           </div>
         </div>
 
-        <div className="space-y-4 pb-20">
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-violet-500 font-black">Course Roadmap</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mt-1">Pick your next topic</h2>
+            <p className="text-sm text-slate-500 mt-1">Follow the sequence, complete tasks, and unlock the next lesson.</p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-600">
+            <Sparkles className="h-3.5 w-3.5 text-violet-500" /> Smooth unlock flow enabled
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-20">
           {course.topics.map((topic: Topic, index: number) => {
             const isCompleted = topicCompletionById[topic.id];
             const isUnlocked = index <= unlockedTopicIndex;
@@ -200,17 +211,17 @@ export default function PathPage() {
                     router.push(`/topic/${topic.id}`);
                   }
                 }}
-                className={`group relative flex items-center p-6 rounded-4xl border transition-all duration-300 bg-white overflow-hidden ${
+                className={`group relative flex items-center h-full p-6 rounded-4xl border transition-all duration-300 bg-white/90 backdrop-blur overflow-hidden ${
                   isLocked
                     ? "border-slate-200/80 opacity-70 cursor-not-allowed"
-                    : "border-slate-200 hover:border-violet-300 cursor-pointer hover:shadow-[0_18px_40px_rgba(124,58,237,0.12)] hover:-translate-y-0.5"
+                    : "border-violet-200/80 hover:border-violet-300 cursor-pointer hover:shadow-[0_20px_45px_rgba(124,58,237,0.14)] hover:-translate-y-0.5"
                 } opacity-100 translate-y-0`}
                 style={{ transitionDelay: `${150 + index * 70}ms` }}
               >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mr-6 transition-colors font-black ${
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mr-6 transition-colors font-black border ${
                   isLocked
-                    ? "bg-slate-100 text-slate-400"
-                    : "bg-violet-50 text-violet-600 group-hover:bg-violet-500 group-hover:text-white"
+                    ? "bg-slate-100 text-slate-400 border-slate-200"
+                    : "bg-violet-50 text-violet-600 border-violet-100 group-hover:bg-violet-500 group-hover:text-white group-hover:border-violet-500"
                 }`}>
                   {index + 1}
                 </div>
@@ -252,8 +263,10 @@ export default function PathPage() {
                 </div>
 
                 {isUnlocked ? (
-                  <div className="flex items-center gap-2 text-sm font-bold text-violet-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-                      Start <span className="text-xl">→</span>
+                  <div className="flex items-center gap-2 text-sm font-bold text-violet-600 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 border border-violet-200 px-3 py-1.5">
+                      Start <ArrowRight className="h-4 w-4" />
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-sm font-bold text-slate-400">
@@ -269,6 +282,12 @@ export default function PathPage() {
 
                 {!isLocked && (
                   <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-linear-to-br ${accent} opacity-0 group-hover:opacity-15 blur-2xl transition-opacity`} />
+                )}
+
+                {!isLocked && (
+                  <div className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full border border-violet-100 bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600">
+                    <Clock3 className="h-3.5 w-3.5 text-violet-500" /> ~45 Min
+                  </div>
                 )}
               </div>
             );

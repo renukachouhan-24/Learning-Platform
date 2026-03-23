@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { coursesData } from "@/lib/coursesData";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { ArrowLeft, BookOpenText, Brain, CheckCircle2, Code2, Languages, PlayCircle, Sparkles } from "lucide-react";
 import { calculateStreakUpdate, getTodayDateString } from "@/lib/streakUtils";
 
@@ -148,6 +148,28 @@ export default function TopicPage() {
 
   const allTopics = Object.values(coursesData).flatMap(course => course.topics);
   const currentTopic = allTopics.find(t => t.id === id);
+
+  useEffect(() => {
+    if (!currentTopic || !user) return;
+
+    const currentPathId = Object.entries(coursesData).find(([, course]) =>
+      course.topics.some((topic) => topic.id === currentTopic.id)
+    )?.[0];
+
+    if (!currentPathId) return;
+
+    const profileDocRef = doc(db, "users", user.uid);
+    setDoc(
+      profileDocRef,
+      {
+        lastVisitedTopicId: currentTopic.id,
+        lastVisitedTopicTitle: currentTopic.title,
+        lastVisitedPathId: currentPathId,
+        lastVisitedAt: serverTimestamp(),
+      },
+      { merge: true }
+    ).catch((err) => handleFirestoreSyncError(err, "save"));
+  }, [currentTopic, user]);
 
   useEffect(() => {
     if (!currentTopic || typeof window === "undefined" || !user) return;
@@ -336,7 +358,7 @@ export default function TopicPage() {
     }
   };
 
-  const updateDailyStreak = async () => {
+  const updateDailyStreak = async (awardXp: boolean) => {
     if (!user) return;
 
     const profileDocRef = doc(db, "users", user.uid);
@@ -349,9 +371,12 @@ export default function TopicPage() {
       const previousLastActiveDate = typeof data.lastActiveDate === "string" ? data.lastActiveDate : null;
       const previousCurrentStreak = typeof data.currentStreak === "number" ? data.currentStreak : 0;
       const previousLongestStreak = typeof data.longestStreak === "number" ? data.longestStreak : 0;
+      const previousTotalXP = typeof data.totalXP === "number" ? data.totalXP : 0;
 
       const newStreak = calculateStreakUpdate(previousLastActiveDate, previousCurrentStreak);
       const newLongestStreak = Math.max(previousLongestStreak, newStreak);
+      const nextTotalXP = awardXp ? previousTotalXP + 20 : previousTotalXP;
+      const nextLevel = Math.floor(nextTotalXP / 100) + 1;
 
       await setDoc(
         profileDocRef,
@@ -359,6 +384,7 @@ export default function TopicPage() {
           lastActiveDate: todayDate,
           currentStreak: newStreak,
           longestStreak: newLongestStreak,
+          ...(awardXp ? { totalXP: nextTotalXP, level: nextLevel } : {}),
         },
         { merge: true }
       );
@@ -419,12 +445,14 @@ export default function TopicPage() {
         },
       }));
 
+      const isNewCompletion = data.passed && activeTaskIndex <= unlockedIndex && !completedSet.has(activeTaskIndex);
+
       // Streak should update whenever user passes a task (even if task was already completed before).
       if (data.passed) {
-        await updateDailyStreak();
+        await updateDailyStreak(isNewCompletion);
       }
 
-      if (data.passed && activeTaskIndex <= unlockedIndex && !completedSet.has(activeTaskIndex)) {
+      if (isNewCompletion) {
         const updated = [...completedTasks, activeTaskIndex].sort((a, b) => a - b);
         setCompletedTasks(updated);
         // Save to localStorage (fast, offline)
@@ -468,7 +496,7 @@ export default function TopicPage() {
       <div className="pointer-events-none absolute bottom-0 left-1/3 w-md h-112 rounded-full bg-cyan-100/45 blur-3xl" />
 
       {/* Top Header */}
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-8">
+      <div className="relative z-10 w-full px-3 md:px-4 py-6">
         <button
           onClick={() => router.back()}
           className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/85 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:text-violet-500 hover:shadow"
@@ -476,33 +504,37 @@ export default function TopicPage() {
           <ArrowLeft className="h-4 w-4" /> Back to Path
         </button>
 
-        <div className="rounded-3xl border border-violet-100 bg-white/85 backdrop-blur p-6 md:p-7 shadow-[0_16px_45px_rgba(124,58,237,0.12)]">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-black">{currentTopic.title}</h1>
-            <span className="px-3 py-1 bg-violet-50 border border-violet-100 rounded-full text-[10px] uppercase tracking-widest font-bold text-slate-500">Topic</span>
-            <span className="inline-flex items-center gap-1 px-3 py-1 bg-violet-50 border border-violet-100 rounded-full text-[10px] uppercase tracking-widest font-bold text-violet-600">
-              <Sparkles className="h-3.5 w-3.5" /> Guided
-            </span>
+        <div className="rounded-3xl border border-violet-200/40 bg-white/95 backdrop-blur-xl p-6 md:p-8 shadow-[0_16px_45px_rgba(124,58,237,0.08)]">
+          <div className="flex items-start gap-4 mb-3">
+            <div className="flex-1">
+              <h1 className="text-4xl font-black bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600">{currentTopic.title}</h1>
+            </div>
+            <div className="flex gap-2">
+              <span className="px-3 py-1.5 bg-linear-to-r from-violet-50 to-blue-50 border border-violet-200 rounded-full text-[10px] uppercase tracking-widest font-bold text-violet-700">Topic</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-linear-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-full text-[10px] uppercase tracking-widest font-bold text-pink-700">
+                <Sparkles className="h-3.5 w-3.5" /> Guided
+              </span>
+            </div>
           </div>
-          <p className="text-slate-500 mt-2">{currentTopic.description}</p>
+          <p className="text-slate-600 mt-2 text-base leading-relaxed">{currentTopic.description}</p>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
-              <BookOpenText className="h-3.5 w-3.5" /> 10 Quiz Questions
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-4 py-2 text-[12px] font-bold text-violet-700 shadow-sm">
+              <BookOpenText className="h-4 w-4" /> 10 Quiz Questions
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
-              <Code2 className="h-3.5 w-3.5" /> {topicTaskTotal} Coding Tasks
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-[12px] font-bold text-emerald-700 shadow-sm">
+              <Code2 className="h-4 w-4" /> {topicTaskTotal} Coding Tasks
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
-              <Brain className="h-3.5 w-3.5" /> AI Checked
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-[12px] font-bold text-blue-700 shadow-sm">
+              <Brain className="h-4 w-4" /> AI Checked
             </span>
           </div>
         </div>
       </div>
 
       {/* Tabs Navigation & Language Toggle */}
-      <div className="relative z-10 max-w-5xl mx-auto px-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 inline-flex shadow-sm">
+      <div className="relative z-10 w-full px-3 md:px-4 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 inline-flex shadow-md">
           {([
             { id: "video", icon: PlayCircle },
             { id: "quiz", icon: Brain },
@@ -512,7 +544,7 @@ export default function TopicPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-8 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
-                activeTab === tab.id ? "bg-violet-500 text-white shadow" : "text-slate-500 hover:text-violet-500"
+                activeTab === tab.id ? "bg-linear-to-r from-violet-500 to-pink-500 text-white shadow-md" : "text-slate-500 hover:text-violet-600"
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -524,16 +556,16 @@ export default function TopicPage() {
 
         {/* --- Language Toggle Pill (Video Style) --- */}
         {activeTab === "video" && (
-          <div className="flex bg-white p-1 rounded-full border border-slate-200 shadow-sm">
+          <div className="flex bg-white/90 backdrop-blur-sm p-1 rounded-full border border-slate-200/60 shadow-md">
                 <button 
                     onClick={() => setVideoLanguage("English")}
-              className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "English" ? "bg-violet-500 text-white shadow" : "text-slate-500"}`}
+              className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "English" ? "bg-linear-to-r from-violet-500 to-pink-500 text-white shadow-md" : "text-slate-500 hover:text-violet-600"}`}
                 >
                     <Languages className="h-3.5 w-3.5" /> English
                 </button>
                 <button 
                     onClick={() => setVideoLanguage("Hindi")}
-              className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "Hindi" ? "bg-violet-500 text-white shadow" : "text-slate-500"}`}
+              className={`flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all ${videoLanguage === "Hindi" ? "bg-linear-to-r from-violet-500 to-pink-500 text-white shadow-md" : "text-slate-500 hover:text-violet-600"}`}
                 >
                     <Languages className="h-3.5 w-3.5" /> Hindi
                 </button>
@@ -542,12 +574,12 @@ export default function TopicPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="relative z-10 max-w-5xl mx-auto px-6 pb-20">
+      <div className="relative z-10 w-full px-3 md:px-4 pb-16">
         
         {/* --- VIDEO TAB --- */}
         {activeTab === "video" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="relative aspect-video rounded-4xl overflow-hidden border border-slate-200 bg-white shadow-lg flex items-center justify-center">
+            <div className="relative mx-auto w-full max-w-4xl aspect-video rounded-4xl overflow-hidden border border-slate-200 bg-white shadow-lg flex items-center justify-center">
               {videoLoading ? (
                   <div className="flex flex-col items-center gap-4">
                       <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
@@ -575,15 +607,16 @@ export default function TopicPage() {
 
         {/* --- QUIZ TAB --- */}
         {activeTab === "quiz" && (
-          <div className="bg-white rounded-4xl border border-slate-200 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500 shadow-sm">
-            <div className="flex justify-between items-center mb-10 border-b border-slate-100 pb-6">
+          <div className="bg-white/95 backdrop-blur-sm rounded-4xl border border-slate-200/60 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500 shadow-lg">
+            <div className="flex justify-between items-center mb-10 border-b border-slate-200/60 pb-6">
                 <div>
-                    <h2 className="text-2xl font-black mb-1">AI Practice Quiz</h2>
+                    <h2 className="text-3xl font-black bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600 mb-1">AI Practice Quiz</h2>
+                    <p className="text-sm text-slate-500">Test your knowledge with AI-generated questions</p>
                 </div>
                 <button 
                   onClick={generateQuiz}
                   disabled={loading}
-                  className="px-6 py-3 bg-linear-to-r from-violet-500 to-pink-400 text-white rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                  className="px-6 py-3 bg-linear-to-r from-violet-500 to-pink-500 text-white rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-lg"
                 >
                   {loading ? "AI is thinking..." : "✨ Generate 10 Questions"}
                 </button>
@@ -592,9 +625,10 @@ export default function TopicPage() {
             {quiz.length > 0 ? (
                 <div className="space-y-12">
                 {showResults && (
-                  <div className="rounded-3xl border border-blue-500/20 bg-blue-500/10 p-6 animate-in zoom-in-95">
-                      <p className="text-sm uppercase tracking-[0.2em] text-violet-500 font-bold">Quiz Result</p>
-                    <h3 className="mt-2 text-3xl font-black">{score} / {quiz.length}</h3>
+                  <div className="rounded-3xl border border-blue-200 bg-linear-to-br from-blue-50 to-blue-100/50 p-8 animate-in zoom-in-95 shadow-md">
+                      <p className="text-sm uppercase tracking-[0.2em] text-blue-600 font-black">Quiz Result</p>
+                    <h3 className="mt-3 text-4xl font-black text-blue-700">{score} / {quiz.length}</h3>
+                    <p className="mt-2 text-sm text-blue-600 font-semibold">Score: {Math.round((score / quiz.length) * 100)}%</p>
                   </div>
                 )}
                     {quiz.map((q, qIdx) => (
@@ -606,16 +640,16 @@ export default function TopicPage() {
                                         key={opt}
                                         disabled={showResults}
                                         onClick={() => handleOptionSelect(qIdx, opt)}
-                                        className={`p-5 rounded-2xl border text-left transition-all font-medium ${
+                                        className={`p-5 rounded-2xl border text-left transition-all font-medium shadow-sm ${
                                             showResults
                                               ? opt === q.correctAnswer
-                                                ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                                                ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold"
                                                 : selectedAnswers[qIdx] === opt
-                                                  ? "bg-red-50 border-red-500 text-red-700"
-                                                  : "bg-slate-50 border-slate-200 text-slate-500"
+                                                  ? "bg-red-50 border-red-300 text-red-800 font-semibold"
+                                                  : "bg-slate-50 border-slate-200 text-slate-400"
                                               : selectedAnswers[qIdx] === opt
-                                                ? "bg-violet-50 border-violet-500 text-violet-600"
-                                                : "bg-slate-50 border-slate-200 hover:border-violet-200"
+                                                ? "bg-violet-100 border-violet-400 text-violet-700 font-semibold"
+                                                : "bg-white border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
                                         }`}
                                     >
                                         {opt}
@@ -623,12 +657,16 @@ export default function TopicPage() {
                                 ))}
                             </div>
                             {showResults && (
-                              <div className={`rounded-2xl border p-6 animate-in slide-in-from-left-4 ${selectedAnswers[qIdx] === q.correctAnswer ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                              <div className={`rounded-2xl border p-6 animate-in slide-in-from-left-4 shadow-sm ${
+                                selectedAnswers[qIdx] === q.correctAnswer 
+                                  ? "border-emerald-200 bg-linear-to-r from-emerald-50 to-emerald-100/50" 
+                                  : "border-red-200 bg-linear-to-r from-red-50 to-red-100/50"
+                              }`}>
                                     <div className="flex items-center gap-2 mb-3">
-                                        <div className={`w-2 h-2 rounded-full ${selectedAnswers[qIdx] === q.correctAnswer ? "bg-emerald-500" : "bg-red-500"}`}></div>
-                                  <p className="text-xs uppercase tracking-widest font-black text-slate-500">Explanation</p>
+                                        <div className={`w-2.5 h-2.5 rounded-full ${selectedAnswers[qIdx] === q.correctAnswer ? "bg-emerald-600" : "bg-red-600"}`}></div>
+                                  <p className={`text-xs uppercase tracking-widest font-black ${selectedAnswers[qIdx] === q.correctAnswer ? "text-emerald-700" : "text-red-700"}`}>Explanation</p>
                                     </div>
-                                <p className="text-sm leading-7 text-slate-700 italic">
+                                <p className="text-sm leading-7 text-slate-800 font-medium">
                                       {q.explanation}
                                     </p>
                                 </div>
@@ -636,12 +674,14 @@ export default function TopicPage() {
                         </div>
                     ))}
                     {!showResults && (
-                          <button onClick={() => setShowResults(true)} className="w-full py-5 bg-linear-to-r from-violet-500 to-pink-400 text-white rounded-3xl font-black text-lg hover:opacity-95 transition-all shadow">Submit Answers</button>
+                          <button onClick={() => setShowResults(true)} className="w-full py-5 bg-linear-to-r from-violet-500 to-pink-500 text-white rounded-3xl font-black text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-lg">Submit Answers</button>
                     )}
                 </div>
             ) : (
-                      <div className="text-center py-20 bg-violet-50 rounded-4xl border border-dashed border-violet-200">
-                        <p className="text-slate-500 mb-6">Ready to test your knowledge about {currentTopic.title}?</p>
+                      <div className="text-center py-20 bg-linear-to-b from-violet-50 to-blue-50 rounded-4xl border border-dashed border-violet-200 shadow-sm">
+                        <Brain className="h-12 w-12 mx-auto text-violet-400 mb-4 opacity-60" />
+                        <p className="text-slate-600 mb-4 font-semibold">Ready to test your knowledge about {currentTopic.title}?</p>
+                        <p className="text-sm text-slate-500">Generate AI-powered questions to practice this topic</p>
                 </div>
             )}
         </div>
@@ -650,19 +690,19 @@ export default function TopicPage() {
         {/* --- TASKS TAB --- */}
         {activeTab === "tasks" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="p-6 rounded-3xl border border-violet-100 bg-violet-50">
-              <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Mini Tasks</p>
-              <h3 className="text-2xl font-black mt-2">{currentTopic.title} Coding Drills</h3>
-              <p className="text-slate-500 mt-2 text-sm">
-                Completed {topicTaskDone}/{topicTaskTotal}
+            <div className="p-7 rounded-3xl border border-violet-200/60 bg-linear-to-br from-violet-50 to-blue-50/30 backdrop-blur-sm shadow-md">
+              <p className="text-xs uppercase tracking-widest text-violet-700 font-black">Mini Tasks</p>
+              <h3 className="text-3xl font-black mt-3 bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600">{currentTopic.title} Coding Drills</h3>
+              <p className="text-slate-600 mt-3 text-sm font-semibold">
+                Completed <span className="text-violet-700 font-bold">{topicTaskDone}/{topicTaskTotal}</span>
               </p>
-              <div className="mt-3 h-2 w-full rounded-full bg-white/80 border border-violet-100 overflow-hidden">
-                <div className="h-full rounded-full bg-linear-to-r from-violet-500 to-pink-400 transition-all duration-700" style={{ width: `${topicTaskPercent}%` }} />
+              <div className="mt-4 h-3 w-full rounded-full bg-white/70 border border-violet-200 overflow-hidden shadow-inner">
+                <div className="h-full rounded-full bg-linear-to-r from-violet-500 via-pink-500 to-rose-500 transition-all duration-700 shadow-lg" style={{ width: `${topicTaskPercent}%` }} />
               </div>
-              <p className="mt-2 text-xs font-semibold text-violet-600">Topic progress: {topicTaskPercent}%</p>
+              <p className="mt-3 text-sm font-bold text-violet-700">Topic progress: <span className="text-lg">{topicTaskPercent}%</span></p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {currentTopic.miniTasks.map((task, index) => {
                 const isDone = completedSet.has(index);
                 const isLocked = index > unlockedIndex;
@@ -670,37 +710,50 @@ export default function TopicPage() {
                 return (
                   <div
                     key={task}
-                    className={`p-8 border rounded-4xl relative overflow-hidden ${
+                    className={`p-8 border rounded-3xl relative overflow-hidden group h-full transition-all ${
                       isDone
-                        ? "bg-emerald-50 border-emerald-200 shadow-[0_10px_28px_rgba(16,185,129,0.12)]"
-                        : "bg-white border-slate-200 hover:border-violet-300 hover:shadow-[0_16px_38px_rgba(124,58,237,0.14)] transition-all"
+                        ? "bg-linear-to-br from-emerald-50 to-emerald-100/30 border-emerald-200/60 shadow-[0_10px_28px_rgba(16,185,129,0.15)] hover:shadow-[0_16px_38px_rgba(16,185,129,0.2)]"
+                        : isLocked
+                          ? "bg-slate-50 border-slate-200 opacity-70"
+                          : "bg-white/90 backdrop-blur-sm border-slate-200 hover:border-violet-300 hover:shadow-[0_16px_38px_rgba(124,58,237,0.12)] hover:scale-[1.02]"
                     }`}
                   >
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                      <span className="text-6xl font-black italic">{String(index + 1).padStart(2, "0")}</span>
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                      <span className="text-7xl font-black italic">{String(index + 1).padStart(2, "0")}</span>
                     </div>
 
-                    <span className="text-violet-500 text-xs font-black uppercase tracking-widest">Challenge</span>
-                    <h4 className="text-xl font-bold mt-2 mb-4">Task {index + 1}</h4>
-                    <p className="text-slate-600 text-sm mb-8 leading-relaxed">{task}</p>
+                    <span className={`text-xs font-black uppercase tracking-widest ${
+                      isDone ? "text-emerald-600" : isLocked ? "text-slate-400" : "text-violet-600"
+                    }`}>Challenge {index + 1}</span>
+                    <h4 className="text-2xl font-bold mt-3 mb-2">Task {index + 1}</h4>
+                    <p className="text-slate-700 text-sm mb-6 leading-relaxed">{task}</p>
 
-                    <div className={`mb-3 text-xs font-bold uppercase tracking-widest ${isDone ? "text-emerald-600" : isLocked ? "text-slate-400" : "text-violet-500"}`}>
-                      {isDone ? "Completed" : isLocked ? "Locked" : "Ready to Solve"}
-                    </div>
-
-                    {isDone && (
-                      <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Task done
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full ${
+                        isDone ? "bg-emerald-100 text-emerald-700" : isLocked ? "bg-slate-100 text-slate-400" : "bg-violet-100 text-violet-700"
+                      }`}>
+                        {isDone ? "✓ Completed" : isLocked ? "🔒 Locked" : "→ Ready"}
                       </div>
-                    )}
+                      {isDone && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100/50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Done
+                        </div>
+                      )}
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => openTaskWorkspace(index)}
                       disabled={isLocked}
-                      className="mt-3 w-full py-3 border rounded-xl font-bold transition-all bg-violet-50 hover:bg-violet-100 border-violet-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className={`mt-4 w-full py-3 border-2 rounded-2xl font-bold transition-all ${
+                        isDone
+                          ? "bg-emerald-100 border-emerald-400 text-emerald-700 hover:bg-emerald-200"
+                          : isLocked
+                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-linear-to-r from-violet-100 to-pink-100 border-violet-300 text-violet-700 hover:from-violet-200 hover:to-pink-200"
+                      }`}
                     >
-                      {isLocked ? "Complete Previous Task" : activeTaskIndex === index ? "Workspace Opened" : "Open Workspace"}
+                      {isLocked ? "Complete Previous" : activeTaskIndex === index ? "✓ Workspace Open" : "→ Open Workspace"}
                     </button>
                   </div>
                 );
@@ -708,61 +761,77 @@ export default function TopicPage() {
             </div>
 
             {activeTaskIndex !== null && (
-              <div ref={workspaceRef} className="rounded-4xl border border-slate-200 bg-white p-6 md:p-8 space-y-5 shadow-sm">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Task Workspace</p>
-                  <h4 className="text-2xl font-black mt-2">Task {activeTaskIndex + 1}</h4>
-                  <p className="text-slate-500 mt-2 text-sm">{currentTopic.miniTasks[activeTaskIndex]}</p>
+              <div ref={workspaceRef} className="rounded-4xl border border-slate-200/60 bg-white/95 backdrop-blur-sm p-6 md:p-8 space-y-5 shadow-lg">
+                <div className="border-b border-slate-200 pb-6">
+                  <p className="text-xs uppercase tracking-widest text-violet-700 font-black">✎ Task Workspace</p>
+                  <h4 className="text-3xl font-black mt-3 bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600">Task {activeTaskIndex + 1}</h4>
+                  <p className="text-slate-700 mt-3 text-base leading-relaxed font-medium">{currentTopic.miniTasks[activeTaskIndex]}</p>
                 </div>
 
                 <textarea
                   value={taskDrafts[activeTaskIndex] ?? ""}
                   onChange={(e) => updateTaskDraft(activeTaskIndex, e.target.value)}
-                  className="w-full min-h-65 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm font-mono outline-none focus:border-violet-500"
+                  className="w-full min-h-65 rounded-2xl bg-slate-50 border border-slate-200/80 p-5 text-sm font-mono outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition-all"
                   spellCheck={false}
                 />
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 bg-violet-50 p-4 rounded-2xl border border-violet-200">
                   <button
                     type="button"
                     onClick={evaluateActiveTask}
                     disabled={taskCheckLoading}
-                    className="px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white font-bold disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-xl bg-linear-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600 text-white font-bold disabled:opacity-50 shadow-md transition-all"
                   >
-                    {taskCheckLoading ? "Checking..." : "Check with AI"}
+                    {taskCheckLoading ? "Checking..." : "✨ Check with AI"}
                   </button>
-                  <p className="text-xs text-slate-500">Pass this task to unlock the next one.</p>
+                  <p className="text-xs text-slate-600 font-semibold">Pass this task to unlock the next one.</p>
                 </div>
 
                 {taskFeedback[activeTaskIndex] && (
-                  <div className={`rounded-2xl border p-4 ${taskFeedback[activeTaskIndex].passed ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
-                    <p className="font-bold">
-                      {taskFeedback[activeTaskIndex].passed ? "Passed" : "Needs Improvement"} · Score {taskFeedback[activeTaskIndex].score}/100
-                    </p>
-                    <p className="mt-2 text-sm text-slate-700">{taskFeedback[activeTaskIndex].feedback}</p>
+                  <div className={`rounded-3xl border p-6 shadow-md animate-in zoom-in-95 ${
+                    taskFeedback[activeTaskIndex].passed 
+                      ? "border-emerald-300 bg-linear-to-r from-emerald-50 to-emerald-100/50" 
+                      : "border-red-300 bg-linear-to-r from-red-50 to-red-100/50"
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-bold text-lg">
+                        {taskFeedback[activeTaskIndex].passed ? "✓ Passed!" : "⚠ Needs Improvement"}
+                      </p>
+                      <span className={`text-2xl font-black px-4 py-2 rounded-xl ${
+                        taskFeedback[activeTaskIndex].passed 
+                          ? "bg-emerald-200 text-emerald-800" 
+                          : "bg-red-200 text-red-800"
+                      }`}>
+                        {taskFeedback[activeTaskIndex].score}/100
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-800 leading-relaxed font-medium">{taskFeedback[activeTaskIndex].feedback}</p>
                     {taskFeedback[activeTaskIndex].missing.length > 0 && (
-                      <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">
-                        {taskFeedback[activeTaskIndex].missing.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-600 mb-2">Missing Points:</p>
+                        <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+                          {taskFeedback[activeTaskIndex].missing.map((item) => (
+                            <li key={item} className="font-medium">{item}</li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 )}
 
                 {WEB_PREVIEW_TOPICS.has(currentTopic.id) ? (
                   <div className="space-y-3">
-                    <p className="text-xs uppercase tracking-widest text-violet-500 font-black">Live Preview</p>
+                    <p className="text-xs uppercase tracking-widest text-violet-700 font-black">👀 Live Preview</p>
                     <iframe
                       title="task-preview"
-                      className="w-full h-80 rounded-2xl border border-slate-200 bg-white"
+                      className="w-full h-80 rounded-2xl border border-slate-200/80 bg-white shadow-md"
                       srcDoc={buildPreviewDoc(currentTopic.id, taskDrafts[activeTaskIndex] ?? "")}
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                    Live UI preview is available for HTML, CSS, and JavaScript tasks.
-                    For this topic, write code here and run/test it in your local IDE.
+                  <div className="rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 to-blue-50/30 p-5 text-sm text-slate-700 shadow-sm">
+                    <p className="font-semibold mb-2">💡 Preview Not Available</p>
+                    <p>Live UI preview is available for HTML, CSS, and JavaScript tasks. For this topic, write code here and run/test it in your local IDE.</p>
                   </div>
                 )}
               </div>
