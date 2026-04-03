@@ -123,7 +123,6 @@ export default function TopicPage() {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [showResults, setShowResults] = useState(false);
 
-  // --- NEW: Video Language & Dynamic ID Logic ---
   const [videoLanguage, setVideoLanguage] = useState<"Hindi" | "English">("English");
   const [dynamicVideoId, setDynamicVideoId] = useState<string>("");
   const [videoLoading, setVideoLoading] = useState(true);
@@ -138,7 +137,6 @@ export default function TopicPage() {
   const getScopedTaskKey = (topicId: string, uid: string) => `mini-tasks:${uid}:${topicId}`;
   const getScopedDraftKey = (topicId: string, uid: string) => `mini-task-drafts:${uid}:${topicId}`;
 
-  // Listen to Firebase auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
@@ -177,7 +175,6 @@ export default function TopicPage() {
     const scopedTaskKey = getScopedTaskKey(currentTopic.id, user.uid);
     const scopedDraftKey = getScopedDraftKey(currentTopic.id, user.uid);
 
-    // Step 1: Load from localStorage immediately (fast, offline)
     const scopedSaved = window.localStorage.getItem(scopedTaskKey);
     const legacySaved = window.localStorage.getItem(`mini-tasks:${currentTopic.id}`);
     const saved = scopedSaved ?? legacySaved;
@@ -199,7 +196,6 @@ export default function TopicPage() {
     setTaskDrafts(savedDrafts ? (JSON.parse(savedDrafts) as Record<number, string>) : {});
     setActiveTaskIndex(null);
 
-    // Step 2: Sync from Firestore (cross-device)
     const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
     getDoc(docRef)
       .then((snap) => {
@@ -208,14 +204,12 @@ export default function TopicPage() {
           const firestoreCompleted: number[] = Array.isArray(firestoreData.completedTasks)
             ? firestoreData.completedTasks.filter((item: unknown): item is number => typeof item === "number")
             : [];
-          // Merge: union of localStorage + Firestore (tak koi bhi device ka data na khoye)
           const merged = Array.from(
             new Set([...localCompleted, ...firestoreCompleted])
           ).sort((a, b) => a - b);
           setCompletedTasks(merged);
           window.localStorage.setItem(scopedTaskKey, JSON.stringify(merged));
 
-          // If local has newer progress, push merged state back to Firestore.
           if (merged.length !== firestoreCompleted.length) {
             setDoc(docRef, { completedTasks: merged }, { merge: true }).catch((err) => {
               handleFirestoreSyncError(err, "save");
@@ -447,7 +441,6 @@ export default function TopicPage() {
 
       const isNewCompletion = data.passed && activeTaskIndex <= unlockedIndex && !completedSet.has(activeTaskIndex);
 
-      // Streak should update whenever user passes a task (even if task was already completed before).
       if (data.passed) {
         await updateDailyStreak(isNewCompletion);
       }
@@ -455,11 +448,9 @@ export default function TopicPage() {
       if (isNewCompletion) {
         const updated = [...completedTasks, activeTaskIndex].sort((a, b) => a - b);
         setCompletedTasks(updated);
-        // Save to localStorage (fast, offline)
         if (typeof window !== "undefined" && user) {
           window.localStorage.setItem(getScopedTaskKey(currentTopic.id, user.uid), JSON.stringify(updated));
         }
-        // Save to Firestore (cross-device, account-based)
         if (user) {
           const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
 
@@ -495,7 +486,6 @@ export default function TopicPage() {
       <div className="pointer-events-none absolute top-24 -right-16 w-80 h-80 rounded-full bg-pink-200/45 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/3 w-md h-112 rounded-full bg-cyan-100/45 blur-3xl" />
 
-      {/* Top Header */}
       <div className="relative z-10 w-full px-3 md:px-4 py-6">
         <button
           onClick={() => router.back()}
@@ -532,7 +522,6 @@ export default function TopicPage() {
         </div>
       </div>
 
-      {/* Tabs Navigation & Language Toggle */}
       <div className="relative z-10 w-full px-3 md:px-4 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 inline-flex shadow-md">
           {([
@@ -554,7 +543,6 @@ export default function TopicPage() {
           ))}
         </div>
 
-        {/* --- Language Toggle Pill (Video Style) --- */}
         {activeTab === "video" && (
           <div className="flex bg-white/90 backdrop-blur-sm p-1 rounded-full border border-slate-200/60 shadow-md">
                 <button 
@@ -573,10 +561,8 @@ export default function TopicPage() {
         )}
       </div>
 
-      {/* Main Content Area */}
       <div className="relative z-10 w-full px-3 md:px-4 pb-16">
         
-        {/* --- VIDEO TAB --- */}
         {activeTab === "video" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="relative mx-auto w-full max-w-4xl aspect-video rounded-4xl overflow-hidden border border-slate-200 bg-white shadow-lg flex items-center justify-center">
@@ -605,7 +591,6 @@ export default function TopicPage() {
           </div>
         )}
 
-        {/* --- QUIZ TAB --- */}
         {activeTab === "quiz" && (
           <div className="bg-white/95 backdrop-blur-sm rounded-4xl border border-slate-200/60 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500 shadow-lg">
             <div className="flex justify-between items-center mb-10 border-b border-slate-200/60 pb-6">
@@ -687,7 +672,6 @@ export default function TopicPage() {
         </div>
         )}
 
-        {/* --- TASKS TAB --- */}
         {activeTab === "tasks" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="p-7 rounded-3xl border border-violet-200/60 bg-linear-to-br from-violet-50 to-blue-50/30 backdrop-blur-sm shadow-md">

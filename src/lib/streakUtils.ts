@@ -1,8 +1,3 @@
-/**
- * Streak calculation utility
- * Handles daily streak tracking logic
- */
-
 export interface StreakData {
   currentStreak: number;
   lastActiveDate: string | null;
@@ -28,36 +23,26 @@ export function calculateStreakUpdate(lastActiveDate: string | null, currentStre
   const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
 
   if (daysDiff === 0) {
-    // Same day, no change to streak
     return currentStreakCount;
   } else if (daysDiff === 1) {
-    // Consecutive day, increment streak
     return currentStreakCount + 1;
   } else {
-    // Streak broken, reset to 1
     return 1;
   }
 }
 
-/**
- * Get today's date as ISO string (YYYY-MM-DD)
- */
+
 export function getTodayDateString(): string {
   const today = new Date();
   return today.toISOString().split("T")[0];
 }
 
-/**
- * Check if activity happened today
- */
 export function isActivityToday(lastActiveDate: string | null): boolean {
   if (!lastActiveDate) return false;
   return lastActiveDate === getTodayDateString();
 }
 
-/**
- * Format streak display string
- */
+
 export function formatStreakDisplay(streak: number): string {
   if (streak === 0) return "Start your streak";
   if (streak === 1) return "1 day streak";

@@ -113,7 +113,6 @@ export default function Dashboard() {
 
           const daysDiff = (today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
 
-          // 0: active today, 1: active yesterday (streak still alive), >1: streak broken
           if (daysDiff <= 1) {
             setCurrentStreak(fetchedCurrentStreak > 0 ? fetchedCurrentStreak : 1);
           } else {
@@ -127,7 +126,6 @@ export default function Dashboard() {
         }
       },
       (error) => {
-        // Silent fail for offline/errors
         if (process.env.NODE_ENV === "development") {
           console.warn("Failed to listen to streak data:", error);
         }
@@ -152,14 +150,12 @@ export default function Dashboard() {
         const localCompleted = Array.isArray(parsed)
           ? parsed.filter((item): item is number => typeof item === "number")
           : [];
-        // One-time migration from legacy key -> user-scoped key.
         if (!scopedSaved && localCompleted.length > 0) {
           window.localStorage.setItem(scopedKey, JSON.stringify(localCompleted));
         }
         topicProgressMap.set(topic.id, new Set(localCompleted));
       }
 
-      // Show local progress immediately for fast UI.
       const localCounts: Record<string, number> = {};
       for (const topic of allTopics) {
         localCounts[topic.id] = topicProgressMap.get(topic.id)?.size ?? 0;
@@ -180,7 +176,6 @@ export default function Dashboard() {
           topicProgressMap.set(topicId, existing);
         });
       } catch {
-        // Firestore offline/temporary errors ke case me local progress already loaded hai.
       }
 
       const nextCounts: Record<string, number> = {};
@@ -369,7 +364,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Daily Streak Widget */}
           <div className={`mt-8 rounded-3xl border border-orange-200/70 bg-linear-to-br from-orange-50 to-amber-50 p-6 md:p-8 shadow-[0_12px_40px_rgba(251,146,60,0.15)] ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-95"}`} style={{ transition: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)", transitionDelay: "200ms" }}>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div className="flex items-center gap-4">

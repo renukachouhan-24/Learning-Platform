@@ -82,7 +82,7 @@ export default function Login() {
           email: loggedInUser.email,
           photoURL: loggedInUser.photoURL,
           progress: {
-            fullStack: [], // टॉपिक्स की खाली लिस्ट
+            fullStack: [], 
             aiDev: []
           },
           createdAt: serverTimestamp(),
@@ -247,11 +247,6 @@ export default function Login() {
           </div>
         </div>
       </section>
-
-      {/* <footer className="py-10 text-center text-slate-500">
-        <div className="font-extrabold text-violet-500">✦ DevLearn AI</div>
-        <p className="text-sm mt-2">AI Powered Developer Learning Platform</p>
-      </footer> */}
     </div>
   );
 }

@@ -60,7 +60,6 @@ export default function PathPage() {
           topicProgressMap.set(topicId, existing);
         });
       } catch {
-        // Offline/error case: localStorage progress still works.
       }
 
       const nextCounts: Record<string, number> = {};

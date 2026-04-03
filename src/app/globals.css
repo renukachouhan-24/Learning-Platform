@@ -41,7 +41,6 @@ body {
   background: rgba(167, 139, 250, 0.28);
 }
 
-/* Premium shared surface */
 .app-surface::before {
   content: "";
   position: absolute;
@@ -68,7 +67,6 @@ body {
   box-shadow: 0 20px 45px rgba(124, 58, 237, 0.14);
 }
 
-/* softer scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
 }
