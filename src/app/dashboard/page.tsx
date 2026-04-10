@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
+  const [isNewUser, setIsNewUser] = useState(false);
   const [resumeTopic, setResumeTopic] = useState<{ topicId: string; topicTitle: string; pathId: string } | null>(null);
   const router = useRouter();
 
@@ -85,9 +86,11 @@ export default function Dashboard() {
           const fetchedTopicId = typeof data.lastVisitedTopicId === "string" ? data.lastVisitedTopicId : "";
           const fetchedTopicTitle = typeof data.lastVisitedTopicTitle === "string" ? data.lastVisitedTopicTitle : "";
           const fetchedPathId = typeof data.lastVisitedPathId === "string" ? data.lastVisitedPathId : "";
+          const fetchedIsNewUser = data.isNewUser === true;
 
           setTotalXP(fetchedTotalXP);
           setUserLevel(fetchedLevel);
+          setIsNewUser(fetchedIsNewUser);
 
           if (fetchedTopicId && fetchedPathId) {
             const fallbackTitle = allTopics.find((topic) => topic.id === fetchedTopicId)?.title ?? "Continue Learning";
@@ -121,6 +124,7 @@ export default function Dashboard() {
         } else {
           setTotalXP(0);
           setUserLevel(1);
+          setIsNewUser(false);
           setResumeTopic(null);
           setCurrentStreak(0);
         }
@@ -276,7 +280,7 @@ export default function Dashboard() {
           <div className="text-center">
 
             <h1 className="text-5xl md:text-6xl font-black tracking-tight leading-tight">
-              Welcome back,
+              {isNewUser ? "Welcome," : "Welcome back,"}
               <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-500 to-pink-400"> {user.displayName?.split(" ")[0] ?? "Developer"}</span>
             </h1>
 

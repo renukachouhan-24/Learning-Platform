@@ -5,7 +5,7 @@ import { coursesData } from "@/lib/coursesData";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { ArrowLeft, BookOpenText, Brain, CheckCircle2, Code2, Languages, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpenText, Brain, CheckCircle2, Code2, Languages, PlayCircle } from "lucide-react";
 import { calculateStreakUpdate, getTodayDateString } from "@/lib/streakUtils";
 
 interface QuizQuestion {
@@ -120,8 +120,9 @@ export default function TopicPage() {
   const [activeTab, setActiveTab] = useState<"video" | "quiz" | "tasks">("video");
   const [loading, setLoading] = useState(false);
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
+  const [quizActionMessage, setQuizActionMessage] = useState("");
 
   const [videoLanguage, setVideoLanguage] = useState<"Hindi" | "English">("English");
   const [dynamicVideoId, setDynamicVideoId] = useState<string>("");
@@ -133,9 +134,21 @@ export default function TopicPage() {
   const [taskCheckLoading, setTaskCheckLoading] = useState(false);
   const [taskFeedback, setTaskFeedback] = useState<Record<number, { passed: boolean; score: number; feedback: string; missing: string[] }>>({});
   const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const videoSectionRef = useRef<HTMLDivElement | null>(null);
+  const quizSectionRef = useRef<HTMLDivElement | null>(null);
+  const tasksSectionRef = useRef<HTMLDivElement | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const getScopedTaskKey = (topicId: string, uid: string) => `mini-tasks:${uid}:${topicId}`;
   const getScopedDraftKey = (topicId: string, uid: string) => `mini-task-drafts:${uid}:${topicId}`;
+
+  const jumpToSection = (tab: "video" | "quiz" | "tasks") => {
+    setActiveTab(tab);
+
+    requestAnimationFrame(() => {
+      const sectionRef = tab === "video" ? videoSectionRef : tab === "quiz" ? quizSectionRef : tasksSectionRef;
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -286,6 +299,12 @@ export default function TopicPage() {
   }, [videoLanguage, currentTopic]);
 
   const generateQuiz = async () => {
+    if (quiz.length > 0 && !showResults) {
+      setQuizActionMessage("Please complete and submit the generated questions first.");
+      return;
+    }
+
+    setQuizActionMessage("");
     setLoading(true);
     setShowResults(false);
     setSelectedAnswers({});
@@ -305,8 +324,16 @@ export default function TopicPage() {
   };
 
   const score = quiz.reduce((total, question, index) => {
-    return total + (selectedAnswers[index] === question.correctAnswer ? 1 : 0);
+    const selectedOptionIndex = selectedAnswers[index];
+    if (typeof selectedOptionIndex !== "number") return total;
+    return total + (question.options[selectedOptionIndex] === question.correctAnswer ? 1 : 0);
   }, 0);
+
+  const answeredCount = quiz.reduce((count, _question, index) => {
+    return typeof selectedAnswers[index] === "number" ? count + 1 : count;
+  }, 0);
+  const unansweredCount = Math.max(quiz.length - answeredCount, 0);
+  const canSubmitQuiz = quiz.length > 0 && unansweredCount === 0;
 
   const completedSet = new Set(completedTasks);
   let unlockedIndex = 0;
@@ -499,25 +526,43 @@ export default function TopicPage() {
             <div className="flex-1">
               <h1 className="text-4xl font-black bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600">{currentTopic.title}</h1>
             </div>
-            <div className="flex gap-2">
-              <span className="px-3 py-1.5 bg-linear-to-r from-violet-50 to-blue-50 border border-violet-200 rounded-full text-[10px] uppercase tracking-widest font-bold text-violet-700">Topic</span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-linear-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-full text-[10px] uppercase tracking-widest font-bold text-pink-700">
-                <Sparkles className="h-3.5 w-3.5" /> Guided
-              </span>
-            </div>
           </div>
           <p className="text-slate-600 mt-2 text-base leading-relaxed">{currentTopic.description}</p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-4 py-2 text-[12px] font-bold text-violet-700 shadow-sm">
+            <button
+              type="button"
+              onClick={() => jumpToSection("quiz")}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[12px] font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${
+                activeTab === "quiz"
+                  ? "border-violet-400 bg-linear-to-r from-violet-500 to-pink-500 text-white"
+                  : "border-violet-200 bg-white text-violet-700 hover:bg-violet-50"
+              }`}
+            >
               <BookOpenText className="h-4 w-4" /> 10 Quiz Questions
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-[12px] font-bold text-emerald-700 shadow-sm">
+            </button>
+            <button
+              type="button"
+              onClick={() => jumpToSection("tasks")}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[12px] font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${
+                activeTab === "tasks"
+                  ? "border-emerald-400 bg-linear-to-r from-emerald-500 to-teal-500 text-white"
+                  : "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+              }`}
+            >
               <Code2 className="h-4 w-4" /> {topicTaskTotal} Coding Tasks
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-[12px] font-bold text-blue-700 shadow-sm">
+            </button>
+            <button
+              type="button"
+              onClick={() => jumpToSection("tasks")}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[12px] font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${
+                activeTab === "tasks"
+                  ? "border-blue-400 bg-linear-to-r from-blue-500 to-cyan-500 text-white"
+                  : "border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+              }`}
+            >
               <Brain className="h-4 w-4" /> AI Checked
-            </span>
+            </button>
           </div>
         </div>
       </div>
@@ -564,7 +609,7 @@ export default function TopicPage() {
       <div className="relative z-10 w-full px-3 md:px-4 pb-16">
         
         {activeTab === "video" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div ref={videoSectionRef} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="relative mx-auto w-full max-w-4xl aspect-video rounded-4xl overflow-hidden border border-slate-200 bg-white shadow-lg flex items-center justify-center">
               {videoLoading ? (
                   <div className="flex flex-col items-center gap-4">
@@ -592,7 +637,7 @@ export default function TopicPage() {
         )}
 
         {activeTab === "quiz" && (
-          <div className="bg-white/95 backdrop-blur-sm rounded-4xl border border-slate-200/60 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500 shadow-lg">
+          <div ref={quizSectionRef} className="bg-white/95 backdrop-blur-sm rounded-4xl border border-slate-200/60 p-8 md:p-12 animate-in fade-in zoom-in-95 duration-500 shadow-lg">
             <div className="flex justify-between items-center mb-10 border-b border-slate-200/60 pb-6">
                 <div>
                     <h2 className="text-3xl font-black bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600 mb-1">AI Practice Quiz</h2>
@@ -605,6 +650,9 @@ export default function TopicPage() {
                 >
                   {loading ? "AI is thinking..." : "✨ Generate 10 Questions"}
                 </button>
+                {quizActionMessage && (
+                  <p className="mt-2 text-xs text-amber-600 font-semibold">{quizActionMessage}</p>
+                )}
             </div>
 
             {quiz.length > 0 ? (
@@ -620,19 +668,19 @@ export default function TopicPage() {
                         <div key={qIdx} className="space-y-6">
                             <p className="text-xl font-bold leading-relaxed">{qIdx + 1}. {q.question}</p>
                             <div className="grid grid-cols-1 gap-3">
-                                {q.options.map((opt) => (
+                                {q.options.map((opt, optIdx) => (
                                     <button
-                                        key={opt}
+                                    key={`q-${qIdx}-opt-${optIdx}-${opt}`}
                                         disabled={showResults}
-                                        onClick={() => handleOptionSelect(qIdx, opt)}
+                                        onClick={() => handleOptionSelect(qIdx, optIdx)}
                                         className={`p-5 rounded-2xl border text-left transition-all font-medium shadow-sm ${
                                             showResults
                                               ? opt === q.correctAnswer
                                                 ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold"
-                                                : selectedAnswers[qIdx] === opt
+                                                : selectedAnswers[qIdx] === optIdx
                                                   ? "bg-red-50 border-red-300 text-red-800 font-semibold"
                                                   : "bg-slate-50 border-slate-200 text-slate-400"
-                                              : selectedAnswers[qIdx] === opt
+                                              : selectedAnswers[qIdx] === optIdx
                                                 ? "bg-violet-100 border-violet-400 text-violet-700 font-semibold"
                                                 : "bg-white border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
                                         }`}
@@ -643,13 +691,13 @@ export default function TopicPage() {
                             </div>
                             {showResults && (
                               <div className={`rounded-2xl border p-6 animate-in slide-in-from-left-4 shadow-sm ${
-                                selectedAnswers[qIdx] === q.correctAnswer 
+                                q.options[selectedAnswers[qIdx]] === q.correctAnswer 
                                   ? "border-emerald-200 bg-linear-to-r from-emerald-50 to-emerald-100/50" 
                                   : "border-red-200 bg-linear-to-r from-red-50 to-red-100/50"
                               }`}>
                                     <div className="flex items-center gap-2 mb-3">
-                                        <div className={`w-2.5 h-2.5 rounded-full ${selectedAnswers[qIdx] === q.correctAnswer ? "bg-emerald-600" : "bg-red-600"}`}></div>
-                                  <p className={`text-xs uppercase tracking-widest font-black ${selectedAnswers[qIdx] === q.correctAnswer ? "text-emerald-700" : "text-red-700"}`}>Explanation</p>
+                                        <div className={`w-2.5 h-2.5 rounded-full ${q.options[selectedAnswers[qIdx]] === q.correctAnswer ? "bg-emerald-600" : "bg-red-600"}`}></div>
+                                  <p className={`text-xs uppercase tracking-widest font-black ${q.options[selectedAnswers[qIdx]] === q.correctAnswer ? "text-emerald-700" : "text-red-700"}`}>Explanation</p>
                                     </div>
                                 <p className="text-sm leading-7 text-slate-800 font-medium">
                                       {q.explanation}
@@ -659,7 +707,23 @@ export default function TopicPage() {
                         </div>
                     ))}
                     {!showResults && (
-                          <button onClick={() => setShowResults(true)} className="w-full py-5 bg-linear-to-r from-violet-500 to-pink-500 text-white rounded-3xl font-black text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-lg">Submit Answers</button>
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => {
+                            if (!canSubmitQuiz) return;
+                            setShowResults(true);
+                          }}
+                          disabled={!canSubmitQuiz}
+                          className="w-full py-5 bg-linear-to-r from-violet-500 to-pink-500 text-white rounded-3xl font-black text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        >
+                          Submit Answers
+                        </button>
+                        {unansweredCount > 0 && (
+                          <p className="text-sm text-slate-500 text-center font-semibold">
+                            Please answer all {quiz.length} questions before submitting. {unansweredCount} remaining.
+                          </p>
+                        )}
+                      </div>
                     )}
                 </div>
             ) : (
@@ -673,7 +737,7 @@ export default function TopicPage() {
         )}
 
         {activeTab === "tasks" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+          <div ref={tasksSectionRef} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="p-7 rounded-3xl border border-violet-200/60 bg-linear-to-br from-violet-50 to-blue-50/30 backdrop-blur-sm shadow-md">
               <p className="text-xs uppercase tracking-widest text-violet-700 font-black">Mini Tasks</p>
               <h3 className="text-3xl font-black mt-3 bg-clip-text text-transparent bg-linear-to-r from-violet-600 to-pink-600">{currentTopic.title} Coding Drills</h3>
@@ -827,8 +891,8 @@ export default function TopicPage() {
     </div>
   );
 
-  function handleOptionSelect(qIdx: number, option: string) {
+  function handleOptionSelect(qIdx: number, optionIndex: number) {
     if (showResults) return;
-    setSelectedAnswers({ ...selectedAnswers, [qIdx]: option });
+    setSelectedAnswers({ ...selectedAnswers, [qIdx]: optionIndex });
   }
 }

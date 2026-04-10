@@ -81,6 +81,7 @@ export default function Login() {
           name: loggedInUser.displayName,
           email: loggedInUser.email,
           photoURL: loggedInUser.photoURL,
+          isNewUser: true,
           progress: {
             fullStack: [], 
             aiDev: []
@@ -90,6 +91,7 @@ export default function Login() {
         });
       } else {
         await setDoc(userRef, {
+          isNewUser: false,
           lastLoginAt: serverTimestamp()
         }, { merge: true });
       }
