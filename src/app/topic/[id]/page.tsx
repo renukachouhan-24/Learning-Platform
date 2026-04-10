@@ -130,6 +130,7 @@ export default function TopicPage() {
   const [videoError, setVideoError] = useState<string>("");
   const [completedTasks, setCompletedTasks] = useState<number[]>([]);
   const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
+  const [taskWorkspaceMessage, setTaskWorkspaceMessage] = useState("");
   const [taskDrafts, setTaskDrafts] = useState<Record<number, string>>({});
   const [taskCheckLoading, setTaskCheckLoading] = useState(false);
   const [taskFeedback, setTaskFeedback] = useState<Record<number, { passed: boolean; score: number; feedback: string; missing: string[] }>>({});
@@ -183,10 +184,11 @@ export default function TopicPage() {
   }, [currentTopic, user]);
 
   useEffect(() => {
-    if (!currentTopic || typeof window === "undefined" || !user) return;
+    if (!currentTopic || typeof window === "undefined") return;
 
-    const scopedTaskKey = getScopedTaskKey(currentTopic.id, user.uid);
-    const scopedDraftKey = getScopedDraftKey(currentTopic.id, user.uid);
+    const storageUid = user?.uid ?? auth.currentUser?.uid ?? "guest";
+    const scopedTaskKey = getScopedTaskKey(currentTopic.id, storageUid);
+    const scopedDraftKey = getScopedDraftKey(currentTopic.id, storageUid);
 
     const scopedSaved = window.localStorage.getItem(scopedTaskKey);
     const legacySaved = window.localStorage.getItem(`mini-tasks:${currentTopic.id}`);
@@ -209,28 +211,30 @@ export default function TopicPage() {
     setTaskDrafts(savedDrafts ? (JSON.parse(savedDrafts) as Record<number, string>) : {});
     setActiveTaskIndex(null);
 
-    const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
-    getDoc(docRef)
-      .then((snap) => {
-        if (snap.exists()) {
-          const firestoreData = snap.data();
-          const firestoreCompleted: number[] = Array.isArray(firestoreData.completedTasks)
-            ? firestoreData.completedTasks.filter((item: unknown): item is number => typeof item === "number")
-            : [];
-          const merged = Array.from(
-            new Set([...localCompleted, ...firestoreCompleted])
-          ).sort((a, b) => a - b);
-          setCompletedTasks(merged);
-          window.localStorage.setItem(scopedTaskKey, JSON.stringify(merged));
+    if (user) {
+      const docRef = doc(db, "users", user.uid, "progress", currentTopic.id);
+      getDoc(docRef)
+        .then((snap) => {
+          if (snap.exists()) {
+            const firestoreData = snap.data();
+            const firestoreCompleted: number[] = Array.isArray(firestoreData.completedTasks)
+              ? firestoreData.completedTasks.filter((item: unknown): item is number => typeof item === "number")
+              : [];
+            const merged = Array.from(
+              new Set([...localCompleted, ...firestoreCompleted])
+            ).sort((a, b) => a - b);
+            setCompletedTasks(merged);
+            window.localStorage.setItem(scopedTaskKey, JSON.stringify(merged));
 
-          if (merged.length !== firestoreCompleted.length) {
-            setDoc(docRef, { completedTasks: merged }, { merge: true }).catch((err) => {
-              handleFirestoreSyncError(err, "save");
-            });
+            if (merged.length !== firestoreCompleted.length) {
+              setDoc(docRef, { completedTasks: merged }, { merge: true }).catch((err) => {
+                handleFirestoreSyncError(err, "save");
+              });
+            }
           }
-        }
-      })
-      .catch((err) => handleFirestoreSyncError(err, "load"));
+        })
+        .catch((err) => handleFirestoreSyncError(err, "load"));
+    }
   }, [currentTopic, user]);
 
   useEffect(() => {
@@ -343,10 +347,13 @@ export default function TopicPage() {
 
   const openTaskWorkspace = (index: number) => {
     if (!currentTopic) return;
-    if (index > unlockedIndex) return;
+    if (index > unlockedIndex) {
+      setTaskWorkspaceMessage("Complete the previous task first to unlock this workspace.");
+      return;
+    }
 
-    const uid = user?.uid ?? auth.currentUser?.uid;
-    if (!uid) return;
+    const storageUid = user?.uid ?? auth.currentUser?.uid ?? "guest";
+    setTaskWorkspaceMessage("");
 
     setActiveTaskIndex(index);
 
@@ -356,7 +363,7 @@ export default function TopicPage() {
       setTaskDrafts(updatedDrafts);
 
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(getScopedDraftKey(currentTopic.id, uid), JSON.stringify(updatedDrafts));
+        window.localStorage.setItem(getScopedDraftKey(currentTopic.id, storageUid), JSON.stringify(updatedDrafts));
       }
     }
 
@@ -368,14 +375,13 @@ export default function TopicPage() {
   const updateTaskDraft = (index: number, value: string) => {
     if (!currentTopic) return;
 
-    const uid = user?.uid ?? auth.currentUser?.uid;
-    if (!uid) return;
+    const storageUid = user?.uid ?? auth.currentUser?.uid ?? "guest";
 
     const updatedDrafts = { ...taskDrafts, [index]: value };
     setTaskDrafts(updatedDrafts);
 
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(getScopedDraftKey(currentTopic.id, uid), JSON.stringify(updatedDrafts));
+      window.localStorage.setItem(getScopedDraftKey(currentTopic.id, storageUid), JSON.stringify(updatedDrafts));
     }
   };
 
@@ -749,6 +755,12 @@ export default function TopicPage() {
               </div>
               <p className="mt-3 text-sm font-bold text-violet-700">Topic progress: <span className="text-lg">{topicTaskPercent}%</span></p>
             </div>
+
+            {taskWorkspaceMessage && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                {taskWorkspaceMessage}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {currentTopic.miniTasks.map((task, index) => {
